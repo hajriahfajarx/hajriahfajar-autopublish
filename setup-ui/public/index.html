@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setup — hajriahfajar-autopublish</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; max-width: 680px; margin: 40px auto; padding: 0 20px; line-height: 1.5; }
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 1px solid #8884; padding-bottom: 4px; }
+  label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.9rem; }
+  input[type=text], input[type=time] { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; font-size: 0.95rem; }
+  .hint { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
+  .row { display: flex; gap: 16px; }
+  .row > div { flex: 1; }
+  button { padding: 10px 16px; font-size: 0.95rem; margin-top: 12px; cursor: pointer; }
+  .cat { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .cat input { width: auto; }
+  .status { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 0.9rem; }
+  .status.ok { background: #1a7f371a; border: 1px solid #1a7f37; }
+  .status.pending { background: #9a67001a; border: 1px solid #9a6700; }
+  .status.err { background: #cf222e1a; border: 1px solid #cf222e; }
+  pre { white-space: pre-wrap; font-size: 0.8rem; background: #8881; padding: 10px; border-radius: 6px; }
+</style>
+</head>
+<body>
+  <h1>hajriahfajar-autopublish — Pengaturan</h1>
+  <p class="hint">Halaman ini jalan lokal di komputer kamu saja (localhost). Tidak ada credential yang dikirim ke tempat lain selain Google &amp; (opsional) GitHub.</p>
+
+  <h2>1. Gemini</h2>
+  <label>Gemini API Key</label>
+  <input type="text" id="geminiApiKey" placeholder="AIza..." />
+  <div class="hint">Ambil dari <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a>.</div>
+
+  <h2>2. Hubungkan Google Account (Blogger + Sheets)</h2>
+  <label>OAuth Client ID</label>
+  <input type="text" id="clientId" placeholder="xxxxx.apps.googleusercontent.com" />
+  <label>OAuth Client Secret</label>
+  <input type="text" id="clientSecret" />
+  <div class="hint">Dari Google Cloud Console → APIs &amp; Services → Credentials → OAuth client ID (tipe: Desktop app).</div>
+
+  <label>URL Blog</label>
+  <input type="text" id="blogUrl" value="https://hajriahfajar.com/" />
+
+  <label>Google Sheet ID (kosongkan untuk dibuatkan otomatis)</label>
+  <input type="text" id="sheetId" placeholder="(opsional)" />
+
+  <button id="connectBtn">Connect Google Account</button>
+  <div id="oauthStatus" class="status pending" style="display:none;"></div>
+
+  <h2>3. Kategori yang diikutkan di rotasi otomatis</h2>
+  <div class="cat"><input type="checkbox" id="cat-digital-insights" checked /><label style="margin:0" for="cat-digital-insights">Digital Insights</label></div>
+  <div class="cat"><input type="checkbox" id="cat-faith-society" checked /><label style="margin:0" for="cat-faith-society">Faith &amp; Society</label></div>
+  <div class="cat"><input type="checkbox" id="cat-productivity" checked /><label style="margin:0" for="cat-productivity">Productivity</label></div>
+  <div class="cat"><input type="checkbox" id="cat-performance-mindset" checked /><label style="margin:0" for="cat-performance-mindset">Performance Mindset</label></div>
+  <div class="cat"><input type="checkbox" disabled /><label style="margin:0; opacity:0.6">Fragment Hidup (selalu dikecualikan — butuh pengalaman pribadi asli)</label></div>
+
+  <h2>4. Jam terbit (acak di dalam rentang ini)</h2>
+  <div class="row">
+    <div><label>Mulai</label><input type="time" id="windowStart" value="19:00" /></div>
+    <div><label>Sampai</label><input type="time" id="windowEnd" value="20:30" /></div>
+  </div>
+  <div class="hint">Timezone: Asia/Jakarta (WIB).</div>
+
+  <h2>5. Simpan</h2>
+  <div class="cat">
+    <input type="checkbox" id="pushToGithub" />
+    <label style="margin:0" for="pushToGithub">Juga push ke GitHub Actions secrets</label>
+  </div>
+  <div id="ghStatus" class="hint"></div>
+
+  <button id="saveBtn">Save</button>
+  <div id="saveResult"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

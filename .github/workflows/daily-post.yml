@@ -1,0 +1,39 @@
+name: Daily auto-publish
+
+on:
+  schedule:
+    # 12:00 UTC = 19:00 WIB. The script itself sleeps a random 0-90 minutes
+    # after this so the real publish time lands anywhere in 19:00-20:30 WIB.
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci
+
+      - name: Run daily article pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          PUBLISH_WINDOW_START: ${{ secrets.PUBLISH_WINDOW_START }}
+          PUBLISH_WINDOW_END: ${{ secrets.PUBLISH_WINDOW_END }}
+          PUBLISH_TIMEZONE: ${{ secrets.PUBLISH_TIMEZONE }}
+          ACTIVE_CATEGORIES: ${{ secrets.ACTIVE_CATEGORIES }}
+          # workflow_dispatch (manual test run) skips the randomized sleep so
+          # you don't have to wait up to 90 minutes to see the result.
+          SKIP_RANDOM_SLEEP: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+        run: npm run run
