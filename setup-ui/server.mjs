@@ -223,7 +223,6 @@ PUBLISH_WINDOW_START=${values.windowStart}
 PUBLISH_WINDOW_END=${values.windowEnd}
 PUBLISH_TIMEZONE=Asia/Jakarta
 ACTIVE_CATEGORIES=${values.categories.join(",")}
-SKIP_RANDOM_SLEEP=false
 `;
 }
 

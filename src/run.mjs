@@ -15,17 +15,18 @@ import { publishPost } from "./blogger.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MAX_FIX_ATTEMPTS = 3;
 
-function parseTimeToMinutes(hhmm) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
+function dateStringInTz(date, timeZone) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-function randomDelayMs(windowStart, windowEnd) {
-  const startMin = parseTimeToMinutes(windowStart);
-  const endMin = parseTimeToMinutes(windowEnd);
-  const spanMin = Math.max(0, endMin - startMin);
-  const randomMin = Math.random() * spanMin;
-  return Math.round(randomMin * 60 * 1000);
+function alreadyHandledToday(pastLog, timeZone) {
+  const today = dateStringInTz(new Date(), timeZone);
+  return pastLog.some((row) => {
+    if (!row.date || (row.status !== "published" && row.status !== "failed")) return false;
+    const rowDate = new Date(row.date);
+    if (Number.isNaN(rowDate.valueOf())) return false;
+    return dateStringInTz(rowDate, timeZone) === today;
+  });
 }
 
 function normalize(str) {
@@ -50,19 +51,8 @@ function insertImageIntoDivs(html, imageHtml) {
   );
 }
 
-async function sleepRandomWithinWindow(config) {
-  if (config.skipRandomSleep) {
-    console.log("SKIP_RANDOM_SLEEP=true — skipping the randomized publish-time delay.");
-    return;
-  }
-  const delay = randomDelayMs(config.publishWindow.start, config.publishWindow.end);
-  console.log(`Sleeping ${Math.round(delay / 60000)} minute(s) to land within the ${config.publishWindow.start}-${config.publishWindow.end} ${config.publishWindow.timezone} publish window...`);
-  await new Promise((resolve) => setTimeout(resolve, delay));
-}
-
 async function main() {
   const config = loadConfig();
-  await sleepRandomWithinWindow(config);
 
   const categories = getActiveCategories(config.activeCategories);
   const styleGuideTemplate = readFileSync(path.join(__dirname, "..", "prompts", "style-guide.md"), "utf-8");
@@ -72,6 +62,11 @@ async function main() {
 
   await ensureHeaderRow(auth, config.sheetId);
   const pastLog = await readLogRows(auth, config.sheetId);
+
+  if (alreadyHandledToday(pastLog, config.publishWindow.timezone)) {
+    console.log("Today already has a published/failed row in the log — skipping (prevents double-posting if slots ever overlap).");
+    return;
+  }
 
   console.log(`Loaded ${pastLog.length} past log row(s). Picking a new topic...`);
 
