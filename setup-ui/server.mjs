@@ -213,7 +213,7 @@ async function handleGhStatus(req, res) {
 
 function buildEnvFile(values) {
   return `GEMINI_API_KEY=${values.geminiApiKey}
-GEMINI_MODEL=gemini-flash-latest
+GEMINI_MODEL=gemini-flash-latest,gemini-flash-lite-latest
 GOOGLE_CLIENT_ID=${state.oauthClient?.clientId || ""}
 GOOGLE_CLIENT_SECRET=${state.oauthClient?.clientSecret || ""}
 GOOGLE_REFRESH_TOKEN=${state.refreshToken || ""}
@@ -251,7 +251,7 @@ async function handleSave(req, res) {
       } else {
         const secretValues = {
           GEMINI_API_KEY: body.geminiApiKey,
-          GEMINI_MODEL: "gemini-flash-latest",
+          GEMINI_MODEL: "gemini-flash-latest,gemini-flash-lite-latest",
           GOOGLE_CLIENT_ID: state.oauthClient?.clientId || "",
           GOOGLE_CLIENT_SECRET: state.oauthClient?.clientSecret || "",
           GOOGLE_REFRESH_TOKEN: state.refreshToken || "",

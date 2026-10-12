@@ -26,10 +26,33 @@ async function generateContentWithRetry(ai, params, { retries = 4, baseDelayMs =
 }
 
 /**
+ * Tries each model in `models` (in order) with its own retry-with-backoff
+ * cycle, falling through to the next model only once a given model has
+ * exhausted its retries. This is what protects a daily run from a single
+ * model (e.g. "gemini-flash-latest") being temporarily overloaded — seen in
+ * practice during initial testing (503 UNAVAILABLE), where falling back to
+ * "gemini-flash-lite-latest" succeeded immediately.
+ */
+async function generateContentWithFallback(ai, models, paramsWithoutModel, retryOpts) {
+  let lastErr;
+  for (let i = 0; i < models.length; i++) {
+    try {
+      return await generateContentWithRetry(ai, { ...paramsWithoutModel, model: models[i] }, retryOpts);
+    } catch (err) {
+      lastErr = err;
+      if (i < models.length - 1) {
+        console.log(`Model "${models[i]}" exhausted its retries, falling back to "${models[i + 1]}"...`);
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Asks Gemini (JSON mode) to propose one new, non-duplicate article topic
  * from the allowed categories, given the log of titles/keywords already used.
  */
-export async function pickTopic(ai, model, { categories, pastLog, extraAvoid = [] }) {
+export async function pickTopic(ai, models, { categories, pastLog, extraAvoid = [] }) {
   const categoryList = categories.map((c) => `- ${c.label} (slug: ${c.slug}): ${c.description}`).join("\n");
   const pastList = pastLog.length
     ? pastLog.map((r) => `- [${r.category}] "${r.titleId}" / "${r.titleEn}" (keyword: ${r.targetKeyword})`).join("\n")
@@ -60,8 +83,7 @@ Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) 
   "brief": "<2-3 kalimat sudut pandang/angle artikel ini>"
 }`;
 
-  const response = await generateContentWithRetry(ai, {
-    model,
+  const response = await generateContentWithFallback(ai, models, {
     contents: prompt,
     config: { responseMimeType: "application/json" },
   });
@@ -86,7 +108,7 @@ Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) 
  * Fills the style-guide template's INPUT PENGGUNA placeholders and asks
  * Gemini to write the full BAGIAN A + BAGIAN B article.
  */
-export async function writeArticle(ai, model, styleGuideTemplate, topic, categoryLabel) {
+export async function writeArticle(ai, models, styleGuideTemplate, topic, categoryLabel) {
   const filled = styleGuideTemplate
     .replaceAll("{{CATEGORY_LABEL}}", categoryLabel)
     .replaceAll("{{SEARCH_INTENT}}", topic.searchIntent)
@@ -96,8 +118,7 @@ export async function writeArticle(ai, model, styleGuideTemplate, topic, categor
     .replaceAll("{{TITLE_EN}}", topic.titleEn)
     .replaceAll("{{BRIEF}}", topic.brief);
 
-  const response = await generateContentWithRetry(ai, {
-    model,
+  const response = await generateContentWithFallback(ai, models, {
     contents: filled,
   });
 
@@ -108,7 +129,7 @@ export async function writeArticle(ai, model, styleGuideTemplate, topic, categor
  * Sends back a list of concrete problems found in the generated HTML and
  * asks Gemini to return a corrected fenced HTML block only.
  */
-export async function fixArticleHtml(ai, model, brokenHtml, issues) {
+export async function fixArticleHtml(ai, models, brokenHtml, issues) {
   const prompt = `Berikut adalah HTML artikel blog yang perlu diperbaiki. Ditemukan masalah berikut:
 
 ${issues.map((i) => `- ${i}`).join("\n")}
@@ -121,8 +142,7 @@ ${brokenHtml}
 
 Balas HANYA dengan HTML yang sudah diperbaiki, dalam SATU fenced code block \`\`\`html ... \`\`\`, tanpa penjelasan tambahan, tanpa BAGIAN A, tanpa teks lain di luar code block.`;
 
-  const response = await generateContentWithRetry(ai, {
-    model,
+  const response = await generateContentWithFallback(ai, models, {
     contents: prompt,
   });
 

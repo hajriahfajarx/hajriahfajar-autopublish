@@ -12,7 +12,14 @@ export function loadConfig() {
   return {
     gemini: {
       apiKey: required("GEMINI_API_KEY"),
-      model: process.env.GEMINI_MODEL || "gemini-flash-latest",
+      // Tried in order; falls through to the next only once the previous
+      // model has exhausted its own retries (see generateContentWithFallback
+      // in gemini.mjs). Protects against one model being temporarily
+      // overloaded — observed in practice with gemini-flash-latest (503).
+      models: (process.env.GEMINI_MODEL || "gemini-flash-latest,gemini-flash-lite-latest")
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean),
     },
     google: {
       clientId: required("GOOGLE_CLIENT_ID"),

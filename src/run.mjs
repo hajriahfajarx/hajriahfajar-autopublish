@@ -75,10 +75,10 @@ async function main() {
 
   console.log(`Loaded ${pastLog.length} past log row(s). Picking a new topic...`);
 
-  let topic = await pickTopic(ai, config.gemini.model, { categories, pastLog });
+  let topic = await pickTopic(ai, config.gemini.models, { categories, pastLog });
   if (isLikelyDuplicate(topic, pastLog)) {
     console.log("First topic suggestion looked like a duplicate, asking Gemini again with an explicit nudge...");
-    topic = await pickTopic(ai, config.gemini.model, {
+    topic = await pickTopic(ai, config.gemini.models, {
       categories,
       pastLog,
       extraAvoid: [`- "${topic.titleId}" / "${topic.titleEn}" (keyword: ${topic.targetKeyword})`],
@@ -89,7 +89,7 @@ async function main() {
   console.log(`Topic chosen: [${category.label}] "${topic.titleId}" / "${topic.titleEn}"`);
 
   console.log("Writing full article...");
-  let rawResponse = await writeArticle(ai, config.gemini.model, styleGuideTemplate, topic, category.label);
+  let rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
   let parsed = parseGeminiArticleResponse(rawResponse);
   let result = validateArticle(parsed);
 
@@ -99,7 +99,7 @@ async function main() {
     console.log(`Validation found ${result.issues.length} issue(s), attempt ${attempt}/${MAX_FIX_ATTEMPTS} to fix:`);
     result.issues.forEach((i) => console.log(`  - ${i}`));
 
-    const fixedHtmlResponse = await fixArticleHtml(ai, config.gemini.model, parsed.html, result.issues);
+    const fixedHtmlResponse = await fixArticleHtml(ai, config.gemini.models, parsed.html, result.issues);
     const fixedHtmlMatch = fixedHtmlResponse.match(/```(?:html)?\s*\n([\s\S]*?)\n```/i);
     if (fixedHtmlMatch) {
       parsed = { ...parsed, html: fixedHtmlMatch[1].trim() };
