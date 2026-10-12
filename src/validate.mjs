@@ -46,6 +46,13 @@ export function validateArticle({ meta, html }) {
     if (PLACEHOLDER_PATTERNS.some((p) => p.test(value))) {
       issues.push(`Field BAGIAN A "${field}" masih mengandung placeholder yang belum diisi: "${value}".`);
     }
+    // A value starting with a parenthetical, or containing instruction-like
+    // phrasing, usually means the field's formatting note leaked into the
+    // answer instead of being stripped (seen in practice with Prompt
+    // Thumbnail / Alt Text Gambar Utama).
+    if (/^\s*\(/.test(value) || /WAJIB menggunakan/i.test(value)) {
+      issues.push(`Field BAGIAN A "${field}" sepertinya berisi instruksi/catatan format yang ikut ter-copy, bukan isi sebenarnya: "${value}".`);
+    }
   }
 
   if (!html || !html.trim()) {

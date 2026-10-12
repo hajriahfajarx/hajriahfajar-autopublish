@@ -1,0 +1,174 @@
+<!-- ===== SLIDESHOW POSTINGAN TERBARU hajriahfajar.com — mulai ===== -->
+<style>
+.hf-slideshow{position:relative;width:100%;max-width:1200px;margin:0 auto 32px;aspect-ratio:16/7;max-height:480px;overflow:hidden;border-radius:10px;background:#18225d;box-shadow:0 6px 24px rgba(0,0,0,.18);display:none}
+.hf-slideshow.is-ready{display:block}
+@media (max-width:700px){.hf-slideshow{aspect-ratio:4/3;max-height:320px;border-radius:6px}}
+
+.hf-slide{position:absolute;inset:0;display:block;opacity:0;pointer-events:none;z-index:1;text-decoration:none;transition:opacity .7s ease, transform .7s ease}
+.hf-slide.is-active{opacity:1;pointer-events:auto;transform:none!important;z-index:2}
+
+.hf-slide[data-transition="slide"]{transform:translateX(8%)}
+.hf-slide[data-transition="zoom"]{transform:scale(1.18)}
+.hf-slide[data-transition="flip"]{transform:rotateY(20deg)}
+
+.hf-slide-bg{position:absolute;inset:0;z-index:0;overflow:hidden;background:#18225d}
+.hf-slide-bg > i{position:absolute;inset:-6%;display:block;background-size:cover;background-position:center;background-repeat:no-repeat;font-style:normal;transform:scale(1)}
+.hf-slide.is-active .hf-slide-bg > i{animation:hfKenBurns 5000ms linear forwards}
+@keyframes hfKenBurns{from{transform:scale(1)}to{transform:scale(1.12)}}
+
+.hf-slide-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(to top, rgba(0,0,0,.9) 0%, rgba(0,0,0,.4) 45%, rgba(0,0,0,.05) 75%)}
+
+.hf-slide-content{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:22px 26px 24px}
+.hf-slide-textwrap{border-left:4px solid #F57C00;padding-left:16px;max-width:820px;text-align:left!important}
+.hf-slide-badge{display:inline-block;background:#F57C00;color:#fff!important;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:4px 10px;border-radius:3px;margin:0 0 10px;text-align:left!important}
+.hf-slide-title{color:#fff!important;font-size:clamp(16px,2.6vw,26px);font-weight:800;line-height:1.32;margin:0;text-shadow:0 2px 10px rgba(0,0,0,.6);display:block!important;opacity:1!important;text-align:left!important}
+
+.hf-slide-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.35);color:#fff;border:none;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.hf-slide-nav:hover{background:rgba(0,0,0,.6)}
+.hf-slide-prev{left:14px}
+.hf-slide-next{right:14px}
+
+.hf-slide-dots{position:absolute;right:18px;top:50%;transform:translateY(-50%);z-index:3;display:flex;flex-direction:column;gap:8px}
+.hf-slide-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.45);border:none;cursor:pointer;padding:0;transition:background .2s,transform .2s}
+.hf-slide-dot.is-active{background:#F57C00;transform:scale(1.3)}
+</style>
+
+<div class="hf-slideshow" id="hf-slideshow" aria-label="Postingan terbaru">
+  <div class="hf-slide-nav hf-slide-prev" id="hf-slide-prev" aria-label="Sebelumnya">&#8249;</div>
+  <div class="hf-slide-nav hf-slide-next" id="hf-slide-next" aria-label="Berikutnya">&#8250;</div>
+  <div class="hf-slide-dots" id="hf-slide-dots"></div>
+</div>
+
+<script>
+(function(){
+  var BLOG_BASE = "https://www.hajriahfajar.com";
+  var SLIDE_COUNT = 5; // jumlah postingan terbaru yang ditampilkan
+  var TRANSITIONS = ["fade", "slide", "zoom", "flip"];
+  var AUTOPLAY_MS = 5000; // harus sama dengan angka di animation: hfKenBurns 5000ms pada CSS di atas
+  var FALLBACK_BG = "#18225d"; // dipakai kalau gambar postingan tidak ketemu
+
+  function ready(fn){
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  // Blogger hanya mengisi media$thumbnail untuk gambar yang di-host di domain
+  // Blogger/Google sendiri (gambar yang di-upload lewat editor Blogger).
+  // Postingan auto-publish kita pakai gambar eksternal (Pollinations.ai), jadi
+  // media$thumbnail-nya selalu kosong untuk postingan itu — fallback di bawah
+  // ini ambil langsung <img> pertama dari HTML asli post (field "content",
+  // yang hanya tersedia kalau Site Feed di Blogger di-set ke "Full").
+  function extractFirstImg(html){
+    if (!html) return null;
+    var m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return m ? m[1] : null;
+  }
+
+  function fetchLatestPosts(){
+    return new Promise(function(resolve){
+      var cbName = "hfHeroLatestCb";
+      window[cbName] = function(data){
+        var entries = (data && data.feed && data.feed.entry) ? data.feed.entry : [];
+        resolve(entries.map(function(entry){
+          var url = "#";
+          for (var i = 0; i < (entry.link || []).length; i++) {
+            if (entry.link[i].rel === "alternate") { url = entry.link[i].href; break; }
+          }
+          var thumb = entry.media$thumbnail ? entry.media$thumbnail.url.replace(/\/s72-c\//, "/w1200-h630-c/") : null;
+          if (!thumb) {
+            thumb = extractFirstImg(entry.content && entry.content.$t);
+          }
+          return { url: url, title: entry.title ? entry.title.$t : "", img: thumb };
+        }));
+        delete window[cbName];
+        script.remove();
+      };
+      var script = document.createElement("script");
+      // "default" (bukan "summary") supaya field "content" (HTML penuh) ikut
+      // terkirim — dibutuhkan untuk fallback gambar di atas. Membutuhkan
+      // Site Feed = "Full" di Blogger Settings > Other.
+      script.src = BLOG_BASE + "/feeds/posts/default?alt=json-in-script&max-results=" + SLIDE_COUNT + "&callback=" + cbName;
+      script.onerror = function(){ resolve([]); delete window[cbName]; };
+      document.body.appendChild(script);
+    });
+  }
+
+  function buildSlideshow(slides){
+    var root = document.getElementById("hf-slideshow");
+    var dotsWrap = document.getElementById("hf-slide-dots");
+    var prevBtn = document.getElementById("hf-slide-prev");
+    var nextBtn = document.getElementById("hf-slide-next");
+
+    slides.forEach(function(slide, i){
+      var a = document.createElement("a");
+      a.className = "hf-slide";
+      a.href = slide.url;
+      a.setAttribute("data-transition", TRANSITIONS[i % TRANSITIONS.length]);
+
+      var bg = document.createElement("div");
+      bg.className = "hf-slide-bg";
+      var bgInner = document.createElement("i");
+      bgInner.style.backgroundColor = FALLBACK_BG;
+      if (slide.img) bgInner.style.backgroundImage = "url('" + slide.img + "')";
+      bg.appendChild(bgInner);
+
+      var overlay = document.createElement("div");
+      overlay.className = "hf-slide-overlay";
+
+      var content = document.createElement("div");
+      content.className = "hf-slide-content";
+      content.innerHTML = "<div class='hf-slide-textwrap'>" +
+        "<span class='hf-slide-badge'>HEADLINE</span>" +
+        "<h2 class='hf-slide-title'>" + slide.title + "</h2>" +
+        "</div>";
+
+      a.appendChild(bg);
+      a.appendChild(overlay);
+      a.appendChild(content);
+      root.insertBefore(a, dotsWrap);
+
+      var dot = document.createElement("button");
+      dot.className = "hf-slide-dot";
+      dot.setAttribute("aria-label", "Slide " + (i + 1));
+      dot.addEventListener("click", function(){ goTo(i); resetTimer(); });
+      dotsWrap.appendChild(dot);
+    });
+
+    var slideEls = root.querySelectorAll(".hf-slide");
+    var dotEls = dotsWrap.querySelectorAll(".hf-slide-dot");
+    var current = 0, timer = null;
+
+    function goTo(i){
+      current = (i + slideEls.length) % slideEls.length;
+      slideEls.forEach(function(el, idx){ el.classList.toggle("is-active", idx === current); });
+      dotEls.forEach(function(el, idx){ el.classList.toggle("is-active", idx === current); });
+    }
+    function next(){ goTo(current + 1); }
+    function prev(){ goTo(current - 1); }
+    function resetTimer(){
+      if (timer) clearInterval(timer);
+      if (slideEls.length > 1) timer = setInterval(next, AUTOPLAY_MS);
+    }
+
+    nextBtn.addEventListener("click", function(){ next(); resetTimer(); });
+    prevBtn.addEventListener("click", function(){ prev(); resetTimer(); });
+    root.addEventListener("mouseenter", function(){ if (timer) clearInterval(timer); });
+    root.addEventListener("mouseleave", resetTimer);
+
+    goTo(0);
+    resetTimer();
+    root.classList.add("is-ready");
+  }
+
+  ready(function(){
+    fetchLatestPosts().then(function(slides){
+      if (!slides.length) {
+        console.warn("[hf-slideshow] Tidak ada postingan ditemukan dari feed — slideshow disembunyikan.");
+        return;
+      }
+      buildSlideshow(slides);
+    });
+  });
+})();
+</script>
+<!-- ===== SLIDESHOW POSTINGAN TERBARU hajriahfajar.com — selesai ===== -->

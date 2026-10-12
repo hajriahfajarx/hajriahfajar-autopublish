@@ -18,7 +18,7 @@ Kategori: Digital Insights
 Search Intent: How-to
 Target Keyword Utama: cara reset wifi
 Keyword Turunan (LSI): cara restart router, kenapa wifi mati
-Judul Artikel WAJIB menggunakan Bahasa Inggris: How to Reset Your Wifi Router
+Judul Artikel: How to Reset Your Wifi Router
 Meta Description: {JUDUL} meta description placeholder not filled in properly for this test case here
 Alt Text Gambar Utama: wifi router reset
 Prompt Thumbnail: a wifi router glowing blue, digital art
@@ -58,7 +58,7 @@ Kategori: Digital Insights
 Search Intent: How-to
 Target Keyword Utama: cara reset wifi
 Keyword Turunan (LSI): cara restart router, kenapa wifi mati
-Judul Artikel WAJIB menggunakan Bahasa Inggris: How to Reset Your Wifi Router
+Judul Artikel: How to Reset Your Wifi Router
 Meta Description: Learn how to reset your wifi router step by step to fix common connectivity issues at home.
 Alt Text Gambar Utama: wifi router reset illustration
 Prompt Thumbnail: a wifi router glowing blue, digital art
@@ -86,6 +86,23 @@ if (!cleanResult.ok) {
   console.error("Clean response issues:", cleanResult.issues);
 }
 assert(cleanResult.ok === true, "clean, fully-filled response should pass validation");
+
+// --- Case 3: label/instruction text leaked into a BAGIAN A field value ---
+// Regression test for a real bug: Gemini echoed the field's formatting note
+// ("(Bahasa Inggris, mengandung keyword utama secara natural): ...") as part
+// of the Alt Text value, which then ended up as the actual <img alt="..."> on
+// a live post. Caught by the "starts with (" / "WAJIB menggunakan" check.
+const leakedResponse = cleanResponse.replace(
+  "Alt Text Gambar Utama: wifi router reset illustration",
+  "Alt Text Gambar Utama: (Bahasa Inggris, mengandung keyword utama secara natural): wifi router reset illustration"
+);
+const leaked = parseGeminiArticleResponse(leakedResponse);
+const leakedResult = validateArticle(leaked);
+assert(leakedResult.ok === false, "leaked instruction text in a field value should fail validation");
+assert(
+  leakedResult.issues.some((i) => i.includes("altText") && i.includes("ter-copy")),
+  "should specifically flag altText as containing leaked instruction text"
+);
 
 if (process.exitCode === 1) {
   console.error("\nSome validate.mjs tests FAILED.");

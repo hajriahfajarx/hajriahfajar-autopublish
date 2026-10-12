@@ -564,15 +564,22 @@ OUTPUT WAJIB (URUTAN INI)
 
 # BAGIAN A — DATA SEO
 
+Catatan cara mengisi (ikuti ini, tapi JANGAN ikut menuliskan catatan ini di jawabanmu — baris di bawah "Format baris:" adalah format label:isi yang sebenarnya harus kamu keluarkan, isi SETELAH tanda titik dua saja, tanpa mengulang instruksi dalam kurung):
+- Judul Artikel dan Prompt Thumbnail: WAJIB Bahasa Inggris.
+- Meta Description: Bahasa Inggris, 140-155 karakter, mengandung keyword utama.
+- Alt Text Gambar Utama: Bahasa Inggris, mengandung keyword utama secara natural.
+- Saran Internal Link: sebutkan 2-3 kategori/topik terkait di blog.
+
+Format baris (isi HANYA setelah titik dua, satu baris per label, tanpa instruksi tambahan):
 Kategori:
 Search Intent:
 Target Keyword Utama:
 Keyword Turunan (LSI):
-Judul Artikel WAJIB menggunakan Bahasa Inggris:
-Meta Description (Bahasa Inggris, 140-155 karakter, mengandung keyword utama):
-Alt Text Gambar Utama (Bahasa Inggris, mengandung keyword utama secara natural):
-Prompt Thumbnail WAJIB menggunakan Bahasa Inggris:
-Saran Internal Link (2-3 kategori/topik terkait di blog):
+Judul Artikel:
+Meta Description:
+Alt Text Gambar Utama:
+Prompt Thumbnail:
+Saran Internal Link:
 
 ==================================================
 # BAGIAN B — ARTIKEL HTML SIAP BLOGGER
