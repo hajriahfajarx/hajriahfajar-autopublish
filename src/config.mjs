@@ -28,6 +28,13 @@ export function loadConfig() {
     },
     blogId: required("BLOG_ID"),
     sheetId: required("SHEET_ID"),
+    r2: {
+      accountId: required("R2_ACCOUNT_ID"),
+      accessKeyId: required("R2_ACCESS_KEY_ID"),
+      secretAccessKey: required("R2_SECRET_ACCESS_KEY"),
+      bucket: required("R2_BUCKET_NAME"),
+      publicBaseUrl: required("R2_PUBLIC_BASE_URL"),
+    },
     publishWindow: {
       start: process.env.PUBLISH_WINDOW_START || "19:00",
       end: process.env.PUBLISH_WINDOW_END || "20:30",

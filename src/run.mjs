@@ -10,6 +10,7 @@ import { createGeminiClient, pickTopic, writeArticle, fixArticleHtml } from "./g
 import { parseGeminiArticleResponse } from "./parse.mjs";
 import { validateArticle } from "./validate.mjs";
 import { buildThumbnailUrl, imgTag } from "./image.mjs";
+import { createR2Client, mirrorImageToR2 } from "./r2upload.mjs";
 import { publishPost } from "./blogger.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -121,7 +122,23 @@ async function main() {
   }
 
   console.log("Validation passed. Generating thumbnail image...");
-  const imageUrl = buildThumbnailUrl(parsed.meta.thumbnailPrompt);
+  const pollinationsUrl = buildThumbnailUrl(parsed.meta.thumbnailPrompt);
+
+  console.log("Mirroring thumbnail to our own R2 bucket (so it doesn't depend on Pollinations staying up long-term)...");
+  const r2Client = createR2Client(config.r2);
+  const slug = topic.targetKeyword
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  const key = `thumbnails/${dateStringInTz(new Date(), config.publishWindow.timezone)}-${slug}-${Math.floor(Math.random() * 1e6)}.jpg`;
+  const imageUrl = await mirrorImageToR2({
+    client: r2Client,
+    bucket: config.r2.bucket,
+    publicBaseUrl: config.r2.publicBaseUrl,
+    sourceUrl: pollinationsUrl,
+    key,
+  });
+
   const imageHtml = imgTag(imageUrl, parsed.meta.altText);
   const finalHtml = insertImageIntoDivs(parsed.html, imageHtml);
 

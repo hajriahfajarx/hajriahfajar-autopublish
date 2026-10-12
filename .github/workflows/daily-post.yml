@@ -58,6 +58,11 @@ jobs:
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           BLOG_ID: ${{ secrets.BLOG_ID }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
           PUBLISH_WINDOW_START: ${{ secrets.PUBLISH_WINDOW_START }}
           PUBLISH_WINDOW_END: ${{ secrets.PUBLISH_WINDOW_END }}
           PUBLISH_TIMEZONE: ${{ secrets.PUBLISH_TIMEZONE }}

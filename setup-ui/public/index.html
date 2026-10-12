@@ -52,21 +52,34 @@
   <button id="connectBtn">Connect Google Account</button>
   <div id="oauthStatus" class="status pending" style="display:none;"></div>
 
-  <h2>3. Kategori yang diikutkan di rotasi otomatis</h2>
+  <h2>3. Cloudflare R2 (penyimpanan thumbnail)</h2>
+  <p class="hint">Gambar yang digenerate di-mirror ke sini supaya tidak bergantung ke layanan generator gambar pihak ketiga. Dari dashboard Cloudflare → R2 Object Storage.</p>
+  <label>Account ID</label>
+  <input type="text" id="r2AccountId" placeholder="14bb2c488fd7f49814311d0c2e34e55f" />
+  <label>Access Key ID</label>
+  <input type="password" id="r2AccessKeyId" />
+  <label>Secret Access Key</label>
+  <input type="password" id="r2SecretAccessKey" />
+  <label>Bucket Name</label>
+  <input type="text" id="r2BucketName" placeholder="hajriahfajar-thumbnails" />
+  <label>Public Base URL</label>
+  <input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxxxxxxx.r2.dev" />
+
+  <h2>4. Kategori yang diikutkan di rotasi otomatis</h2>
   <div class="cat"><input type="checkbox" id="cat-digital-insights" checked /><label style="margin:0" for="cat-digital-insights">Digital Insights</label></div>
   <div class="cat"><input type="checkbox" id="cat-faith-society" checked /><label style="margin:0" for="cat-faith-society">Faith &amp; Society</label></div>
   <div class="cat"><input type="checkbox" id="cat-productivity" checked /><label style="margin:0" for="cat-productivity">Productivity</label></div>
   <div class="cat"><input type="checkbox" id="cat-performance-mindset" checked /><label style="margin:0" for="cat-performance-mindset">Performance Mindset</label></div>
   <div class="cat"><input type="checkbox" disabled /><label style="margin:0; opacity:0.6">Fragment Hidup (selalu dikecualikan — butuh pengalaman pribadi asli)</label></div>
 
-  <h2>4. Jam terbit (acak di dalam rentang ini)</h2>
+  <h2>5. Jam terbit (acak di dalam rentang ini)</h2>
   <div class="row">
     <div><label>Mulai</label><input type="time" id="windowStart" value="19:00" /></div>
     <div><label>Sampai</label><input type="time" id="windowEnd" value="20:30" /></div>
   </div>
   <div class="hint">Timezone: Asia/Jakarta (WIB).</div>
 
-  <h2>5. Simpan</h2>
+  <h2>6. Simpan</h2>
   <div class="cat">
     <input type="checkbox" id="pushToGithub" />
     <label style="margin:0" for="pushToGithub">Juga push ke GitHub Actions secrets</label>
