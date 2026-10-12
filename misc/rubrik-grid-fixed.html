@@ -1,0 +1,267 @@
+<!-- ===== GRID RUBRIK hajriahfajar.com — mulai ===== -->
+<style>
+.hf-rubrik{max-width:1200px;margin:0 auto;padding:0 4px;font-family:inherit}
+.hf-rubrik-row{margin:0 0 40px}
+
+.hf-rubrik-head{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid #e2e2e2;padding-bottom:10px;margin-bottom:18px}
+.hf-rubrik-head h2{display:inline-block!important;visibility:visible!important;opacity:1!important;height:auto!important;width:auto!important;overflow:visible!important;position:static!important;font-size:19px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:0;color:#1a1a1a!important;border-bottom:3px solid #F57C00;padding-bottom:8px;line-height:1}
+.hf-rubrik-more{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#8a8a8a;text-decoration:none;white-space:nowrap}
+.hf-rubrik-more:hover{color:#F57C00}
+.hf-rubrik-more .hf-arrow-circle{width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.hf-rubrik-more .hf-arrow-circle svg{width:10px;height:10px;fill:#666;transition:fill .2s}
+.hf-rubrik-more:hover .hf-arrow-circle{background:#F57C00}
+.hf-rubrik-more:hover .hf-arrow-circle svg{fill:#fff}
+.hf-rubrik-empty{font-size:13px;color:#999;padding:20px 0}
+
+/* Layout 1: grid kartu (Technology & Digital) */
+.hf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.hf-card{display:block;text-decoration:none;color:inherit}
+.hf-card-thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#e9e9e9;border-radius:4px}
+.hf-card-title{font-size:15px;font-weight:700;line-height:1.35;margin:10px 0 6px;color:#1a1a1a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hf-card:hover .hf-card-title{color:#c0392b}
+.hf-card-date{font-size:12px;color:#888}
+@media (max-width:900px){.hf-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.hf-grid{grid-template-columns:1fr}}
+
+/* Layout 2: list dengan cuplikan (Guides & Reviews) */
+.hf-list{display:flex;flex-direction:column;gap:20px}
+.hf-list-item{display:flex;gap:16px;text-decoration:none;color:inherit;text-align:left!important}
+.hf-list-thumb{flex:0 0 150px;width:150px;height:105px;object-fit:cover;border-radius:5px;background:#e9e9e9}
+.hf-list-body{flex:1;min-width:0;text-align:left!important}
+.hf-list-meta{display:flex;align-items:center;gap:9px;margin-bottom:6px;text-align:left!important}
+.hf-list-badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#F57C00!important}
+.hf-list-date{font-size:12px;color:#999}
+.hf-list-title{font-size:17px;font-weight:800;line-height:1.35;margin:0 0 6px;color:#1a1a1a!important;text-align:left!important}
+.hf-list-item:hover .hf-list-title{color:#c0392b!important}
+.hf-list-excerpt{font-size:13px;color:#666!important;line-height:1.55;text-align:left!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:560px){.hf-list-thumb{flex-basis:96px;width:96px;height:72px}.hf-list-excerpt{display:none}}
+
+/* Layout 3: dua rubrik berdampingan, tiap kolom = 1 hero + beberapa item kecil (Health & Career / Productivity & Career) */
+.hf-pair-row{display:grid;grid-template-columns:1fr 1fr;gap:36px}
+@media (max-width:800px){.hf-pair-row{grid-template-columns:1fr;gap:40px}}
+.hf-pair-col .hf-rubrik-head h2{font-size:16px}
+
+.hf-hero{display:block;text-decoration:none;color:inherit;margin-bottom:18px;text-align:left!important}
+.hf-hero-thumbwrap{position:relative;aspect-ratio:16/10;border-radius:5px;overflow:hidden;background:#e9e9e9}
+.hf-hero-thumb{width:100%;height:100%;object-fit:cover;display:block}
+.hf-hero-badge{position:absolute;left:10px;bottom:10px;background:#F57C00;color:#fff!important;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:4px 10px;border-radius:3px}
+.hf-hero-title{font-size:17px;font-weight:800;line-height:1.35;margin:10px 0 4px;color:#1a1a1a!important;text-align:left!important}
+.hf-hero:hover .hf-hero-title{color:#c0392b!important}
+.hf-hero-excerpt{font-size:13px;color:#666!important;line-height:1.55;margin:0 0 4px;text-align:left!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hf-hero-date{font-size:12px;color:#999;text-align:left!important}
+
+.hf-sub-list{display:flex;flex-direction:column;gap:12px}
+.hf-sub-item{display:flex;gap:10px;text-decoration:none;color:inherit;padding-top:12px;border-top:1px solid #ececec;text-align:left!important}
+.hf-sub-item:first-child{padding-top:0;border-top:none}
+.hf-sub-thumb{flex:0 0 62px;width:62px;height:62px;object-fit:cover;border-radius:4px;background:#e9e9e9}
+.hf-sub-body{flex:1;min-width:0;text-align:left!important}
+.hf-sub-title{font-size:13.5px;font-weight:700;line-height:1.35;margin:0 0 4px;color:#1a1a1a!important;text-align:left!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hf-sub-item:hover .hf-sub-title{color:#c0392b!important}
+.hf-sub-date{font-size:11px;color:#999;text-align:left!important}
+</style>
+
+<div class="hf-rubrik" id="hf-rubrik-root"></div>
+
+<script>
+(function(){
+  var BLOG_BASE = "https://www.hajriahfajar.com";
+
+  // Susunan rubrik homepage. "layout" menentukan tampilan: grid | list | hero-list-pair (2 section digabung 1 baris).
+  // "seeAllUrl" adalah halaman Blogger Page khusus yang menampilkan gabungan SEMUA label di "labels"
+  // (dibuat karena Blogger tidak mendukung pencarian gabungan label secara "OR" lewat URL /search/label/).
+  var ROWS = [
+    { layout: "grid", sections: [
+        { title: "Technology & Digital", count: 6,
+          labels: ["Digital Insights", "Technology", "Basic IT", "Cyber Security"],
+          seeAllUrl: "https://www.hajriahfajar.com/p/technology-digital.html" }
+      ]
+    },
+    { layout: "list", sections: [
+        { title: "Guides & Reviews", count: 5,
+          labels: ["How to", "Tutorials", "Review", "Tips & Tricks"],
+          seeAllUrl: "https://www.hajriahfajar.com/p/guides-reviews.html" }
+      ]
+    },
+    { layout: "hero-list-pair", sections: [
+        { title: "Health & Career", count: 5,
+          labels: ["herbal", "ICD 10", "FHIR", "iDRG", "BPJS", "MEDICAL EDUCATION"],
+          seeAllUrl: "https://www.hajriahfajar.com/p/health-career.html" },
+        { title: "Productivity & Career", count: 5,
+          labels: ["Productivity", "Performance Mindset", "Leadership", "Organizational Culture"],
+          seeAllUrl: "https://www.hajriahfajar.com/p/productivity-career.html" }
+      ]
+    }
+  ];
+
+  var root = document.getElementById("hf-rubrik-root");
+  var cbCounter = 0;
+
+  // Blogger hanya mengisi media$thumbnail untuk gambar yang di-host di domain
+  // Blogger/Google sendiri (gambar yang di-upload lewat editor Blogger).
+  // Postingan auto-publish pakai gambar eksternal (Pollinations.ai), jadi
+  // media$thumbnail-nya selalu kosong untuk postingan itu.
+  function extractFirstImg(html){
+    if (!html) return null;
+    var m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return m ? m[1] : null;
+  }
+
+  function fetchLabelJSON(label, maxResults){
+    return new Promise(function(resolve){
+      var cbName = "hfRubrikCb" + (cbCounter++);
+      window[cbName] = function(data){
+        resolve((data && data.feed && data.feed.entry) ? data.feed.entry : []);
+        delete window[cbName];
+        script.remove();
+      };
+      var script = document.createElement("script");
+      // "default" (bukan "summary") supaya field "content" (HTML penuh) ikut
+      // terkirim — dibutuhkan untuk fallback gambar di bawah. Membutuhkan
+      // Site Feed = "Full" di Blogger Settings > Other, kalau tidak field
+      // "content" tidak akan ada sama sekali di response-nya.
+      script.src = BLOG_BASE + "/feeds/posts/default/-/" + encodeURIComponent(label) +
+        "?alt=json-in-script&max-results=" + maxResults + "&callback=" + cbName;
+      script.onerror = function(){ resolve([]); delete window[cbName]; };
+      document.body.appendChild(script);
+    });
+  }
+
+  function cleanExcerpt(summaryRaw, title){
+    var text = (summaryRaw || "").replace(/\s+/g, " ").trim();
+    text = text.replace(/🌐\s*English/gi, "").replace(/🇮🇩\s*Bahasa Indonesia/gi, "")
+               .replace(/🔀[^A-Za-z]*Baca Dalam Bahasa Indonesia/gi, "").replace(/Welcome to Hajriah Fajar:?/gi, "");
+    var t = (title || "").trim();
+    var idx = t ? text.indexOf(t) : -1;
+    if (idx !== -1) text = text.slice(idx + t.length);
+    text = text.trim();
+    if (text.length > 150) text = text.slice(0, 150).replace(/\s+\S*$/, "") + "…";
+    return text;
+  }
+
+  function matchBadge(entry, labels){
+    var cats = (entry.category || []).map(function(c){ return c.term; });
+    for (var i = 0; i < labels.length; i++) {
+      if (cats.indexOf(labels[i]) !== -1) return labels[i];
+    }
+    return labels[0];
+  }
+
+  function entryToCard(entry, labels){
+    var url = "#";
+    for (var i = 0; i < (entry.link || []).length; i++) {
+      if (entry.link[i].rel === "alternate") { url = entry.link[i].href; break; }
+    }
+    var title = entry.title ? entry.title.$t : "(tanpa judul)";
+    var published = entry.published ? entry.published.$t : null;
+    var dateStr = published ? new Date(published).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "";
+    var thumb = entry.media$thumbnail ? entry.media$thumbnail.url.replace(/\/s72-c\//, "/w400-h250-c/") : null;
+    if (!thumb) {
+      thumb = extractFirstImg(entry.content && entry.content.$t);
+    }
+    var excerpt = cleanExcerpt(entry.summary ? entry.summary.$t : "", title);
+    return {
+      id: entry.id.$t, url: url, title: title, published: published,
+      dateStr: dateStr, thumb: thumb, excerpt: excerpt, badge: matchBadge(entry, labels)
+    };
+  }
+
+  function loadSection(section){
+    return Promise.all(section.labels.map(function(l){ return fetchLabelJSON(l, section.count); }))
+      .then(function(results){
+        var seen = {}, merged = [];
+        results.forEach(function(entries){
+          entries.forEach(function(entry){
+            var card = entryToCard(entry, section.labels);
+            if (!seen[card.id]) { seen[card.id] = true; merged.push(card); }
+          });
+        });
+        merged.sort(function(a, b){ return new Date(b.published) - new Date(a.published); });
+        return merged.slice(0, section.count);
+      });
+  }
+
+  function headHTML(section, small){
+    return "<div class='hf-rubrik-head'><h2" + (small ? " style='font-size:16px'" : "") + ">" + section.title + "</h2>" +
+      "<a class='hf-rubrik-more' href='" + section.seeAllUrl + "'>" +
+      "See All<span class='hf-arrow-circle'><svg viewBox='0 0 24 24'><path d='M8.6 4.6 16 12l-7.4 7.4L7 17.8 12.8 12 7 6.2z'/></svg></span></a></div>";
+  }
+
+  function thumbOr(card, cls){
+    return card.thumb
+      ? "<img class='" + cls + "' loading='lazy' src='" + card.thumb + "' alt='" + card.title.replace(/'/g, "&#39;") + "'>"
+      : "<div class='" + cls + "'></div>";
+  }
+
+  function renderGridRow(section, cards){
+    var wrap = document.createElement("div");
+    wrap.className = "hf-rubrik-row";
+    var body = cards.length === 0
+      ? "<div class='hf-rubrik-empty'>Belum ada artikel di rubrik ini.</div>"
+      : "<div class='hf-grid'>" + cards.map(function(card){
+          return "<a class='hf-card' href='" + card.url + "'>" + thumbOr(card, "hf-card-thumb") +
+            "<div class='hf-card-title'>" + card.title + "</div>" +
+            "<div class='hf-card-date'>" + card.dateStr + "</div></a>";
+        }).join("") + "</div>";
+    wrap.innerHTML = headHTML(section) + body;
+    root.appendChild(wrap);
+  }
+
+  function renderListRow(section, cards){
+    var wrap = document.createElement("div");
+    wrap.className = "hf-rubrik-row";
+    var body = cards.length === 0
+      ? "<div class='hf-rubrik-empty'>Belum ada artikel di rubrik ini.</div>"
+      : "<div class='hf-list'>" + cards.map(function(card){
+          return "<a class='hf-list-item' href='" + card.url + "'>" + thumbOr(card, "hf-list-thumb") +
+            "<div class='hf-list-body'>" +
+            "<div class='hf-list-meta'><span class='hf-list-badge'>" + card.badge.toUpperCase() + "</span>" +
+            "<span class='hf-list-date'>" + card.dateStr + "</span></div>" +
+            "<div class='hf-list-title'>" + card.title + "</div>" +
+            "<div class='hf-list-excerpt'>" + card.excerpt + "</div></div></a>";
+        }).join("") + "</div>";
+    wrap.innerHTML = headHTML(section) + body;
+    root.appendChild(wrap);
+  }
+
+  function heroListColumnHTML(section, cards){
+    if (cards.length === 0) {
+      return headHTML(section, true) + "<div class='hf-rubrik-empty'>Belum ada artikel di rubrik ini.</div>";
+    }
+    var hero = cards[0];
+    var rest = cards.slice(1);
+    var heroHTML = "<a class='hf-hero' href='" + hero.url + "'>" +
+      "<div class='hf-hero-thumbwrap'>" + thumbOr(hero, "hf-hero-thumb") +
+      "<span class='hf-hero-badge'>" + hero.badge.toUpperCase() + "</span></div>" +
+      "<div class='hf-hero-title'>" + hero.title + "</div>" +
+      "<div class='hf-hero-excerpt'>" + hero.excerpt + "</div>" +
+      "<div class='hf-hero-date'>" + hero.dateStr + "</div></a>";
+    var subHTML = "<div class='hf-sub-list'>" + rest.map(function(card){
+      return "<a class='hf-sub-item' href='" + card.url + "'>" + thumbOr(card, "hf-sub-thumb") +
+        "<div class='hf-sub-body'><div class='hf-sub-title'>" + card.title + "</div>" +
+        "<div class='hf-sub-date'>" + card.dateStr + "</div></div></a>";
+    }).join("") + "</div>";
+    return headHTML(section, true) + heroHTML + subHTML;
+  }
+
+  function renderHeroListPairRow(sections, cardsPerSection){
+    var wrap = document.createElement("div");
+    wrap.className = "hf-rubrik-row hf-pair-row";
+    sections.forEach(function(section, i){
+      var col = document.createElement("div");
+      col.className = "hf-pair-col";
+      col.innerHTML = heroListColumnHTML(section, cardsPerSection[i]);
+      wrap.appendChild(col);
+    });
+    root.appendChild(wrap);
+  }
+
+  ROWS.forEach(function(row){
+    Promise.all(row.sections.map(loadSection)).then(function(cardsPerSection){
+      if (row.layout === "grid") renderGridRow(row.sections[0], cardsPerSection[0]);
+      else if (row.layout === "list") renderListRow(row.sections[0], cardsPerSection[0]);
+      else if (row.layout === "hero-list-pair") renderHeroListPairRow(row.sections, cardsPerSection);
+    });
+  });
+})();
+</script>
+<!-- ===== GRID RUBRIK hajriahfajar.com — selesai ===== -->
