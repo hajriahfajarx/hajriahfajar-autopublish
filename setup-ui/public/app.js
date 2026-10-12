@@ -24,9 +24,12 @@ function setOauthStatus(cls, text) {
 async function pollOauthStatus() {
   const res = await fetch("/api/oauth/status");
   const data = await res.json();
-  if (data.connected) {
+  if (data.connected && data.blogId && data.sheetId) {
     clearInterval(pollTimer);
     setOauthStatus("ok", `Connected. Blog ID: ${data.blogId} — Sheet ID: ${data.sheetId}`);
+  } else if (data.connected && !data.blogId) {
+    clearInterval(pollTimer);
+    setOauthStatus("err", "Google account connected, but the blog/sheet detection step failed (see the error tab that opened). Fix the issue below, then click Connect Google Account again.");
   }
 }
 
@@ -35,6 +38,7 @@ $("connectBtn").addEventListener("click", async () => {
     clientId: $("clientId").value.trim(),
     clientSecret: $("clientSecret").value.trim(),
     blogUrl: $("blogUrl").value.trim(),
+    blogId: $("blogId").value.trim(),
     sheetId: $("sheetId").value.trim(),
   };
 

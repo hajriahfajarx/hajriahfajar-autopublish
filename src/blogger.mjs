@@ -1,10 +1,10 @@
 import { google } from "googleapis";
 
-export async function publishPost(auth, { blogId, title, contentHtml, label }) {
+export async function publishPost(auth, { blogId, title, contentHtml, label, isDraft = false }) {
   const blogger = google.blogger({ version: "v3", auth });
   const { data } = await blogger.posts.insert({
     blogId,
-    isDraft: false,
+    isDraft,
     requestBody: {
       title,
       content: contentHtml,

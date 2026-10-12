@@ -28,5 +28,9 @@ export function loadConfig() {
     },
     activeCategories: process.env.ACTIVE_CATEGORIES || "digital-insights,faith-society,productivity,performance-mindset",
     skipRandomSleep: process.env.SKIP_RANDOM_SLEEP === "true",
+    // Not a GitHub secret — local-only override for manually testing the
+    // pipeline without actually publishing live. Defaults to false (real
+    // auto-publish) everywhere this isn't explicitly set.
+    draftMode: process.env.DRAFT_MODE === "true",
   };
 }

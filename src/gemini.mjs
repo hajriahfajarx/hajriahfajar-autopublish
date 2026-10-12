@@ -4,6 +4,27 @@ export function createGeminiClient({ apiKey }) {
   return new GoogleGenAI({ apiKey });
 }
 
+function isRetryableStatus(err) {
+  const status = err?.status || err?.response?.status;
+  return status === 503 || status === 429 || status === 500;
+}
+
+async function generateContentWithRetry(ai, params, { retries = 4, baseDelayMs = 5000 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === retries || !isRetryableStatus(err)) throw err;
+      const delay = baseDelayMs * 2 ** attempt;
+      console.log(`Gemini call failed (${err?.status || "unknown status"}), retrying in ${delay / 1000}s... (attempt ${attempt + 1}/${retries})`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Asks Gemini (JSON mode) to propose one new, non-duplicate article topic
  * from the allowed categories, given the log of titles/keywords already used.
@@ -39,7 +60,7 @@ Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) 
   "brief": "<2-3 kalimat sudut pandang/angle artikel ini>"
 }`;
 
-  const response = await ai.models.generateContent({
+  const response = await generateContentWithRetry(ai, {
     model,
     contents: prompt,
     config: { responseMimeType: "application/json" },
@@ -75,7 +96,7 @@ export async function writeArticle(ai, model, styleGuideTemplate, topic, categor
     .replaceAll("{{TITLE_EN}}", topic.titleEn)
     .replaceAll("{{BRIEF}}", topic.brief);
 
-  const response = await ai.models.generateContent({
+  const response = await generateContentWithRetry(ai, {
     model,
     contents: filled,
   });
@@ -100,7 +121,7 @@ ${brokenHtml}
 
 Balas HANYA dengan HTML yang sudah diperbaiki, dalam SATU fenced code block \`\`\`html ... \`\`\`, tanpa penjelasan tambahan, tanpa BAGIAN A, tanpa teks lain di luar code block.`;
 
-  const response = await ai.models.generateContent({
+  const response = await generateContentWithRetry(ai, {
     model,
     contents: prompt,
   });

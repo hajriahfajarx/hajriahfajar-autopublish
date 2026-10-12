@@ -130,15 +130,16 @@ async function main() {
   const imageHtml = imgTag(imageUrl, parsed.meta.altText);
   const finalHtml = insertImageIntoDivs(parsed.html, imageHtml);
 
-  console.log("Publishing to Blogger...");
+  console.log(config.draftMode ? "Saving as DRAFT on Blogger (DRAFT_MODE=true)..." : "Publishing to Blogger...");
   const published = await publishPost(auth, {
     blogId: config.blogId,
     title: parsed.meta.titleEn,
     contentHtml: finalHtml,
     label: category.label,
+    isDraft: config.draftMode,
   });
 
-  console.log(`Published: ${published.url}`);
+  console.log(`${config.draftMode ? "Saved as draft" : "Published"}: ${published.url}`);
 
   await appendLogRow(auth, config.sheetId, {
     date: new Date().toISOString(),

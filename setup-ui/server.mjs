@@ -1,5 +1,6 @@
 import http from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
@@ -13,6 +14,26 @@ const ROOT = path.join(__dirname, "..");
 const PORT = 5577;
 const REDIRECT_URI = `http://localhost:${PORT}/oauth/callback`;
 const SCOPES = ["https://www.googleapis.com/auth/blogger", "https://www.googleapis.com/auth/spreadsheets"];
+
+// On Windows, a freshly-installed gh.exe often isn't on PATH yet for an
+// already-running shell/process (PATH is only refreshed on new login/reboot
+// in some setups). Fall back to the default install location if "gh" alone
+// isn't found, instead of silently reporting "not available".
+const GH_FALLBACK_PATH = "C:\\Program Files\\GitHub CLI\\gh.exe";
+let ghBinaryPromise = null;
+async function resolveGhBinary() {
+  if (ghBinaryPromise) return ghBinaryPromise;
+  ghBinaryPromise = (async () => {
+    try {
+      await execFileAsync("gh", ["--version"]);
+      return "gh";
+    } catch {
+      if (existsSync(GH_FALLBACK_PATH)) return GH_FALLBACK_PATH;
+      return "gh"; // let the real call fail with a clear error
+    }
+  })();
+  return ghBinaryPromise;
+}
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
 
@@ -53,7 +74,8 @@ async function serveStatic(req, res, pathname) {
 
 async function checkGhAvailable() {
   try {
-    await execFileAsync("gh", ["auth", "status"]);
+    const gh = await resolveGhBinary();
+    await execFileAsync(gh, ["auth", "status"]);
     const { stdout } = await execFileAsync("git", ["remote", "get-url", "origin"], { cwd: ROOT });
     return { available: true, remote: stdout.trim() };
   } catch {
@@ -71,13 +93,19 @@ async function handleOauthStart(req, res) {
   const body = await readBody(req);
   state.oauthClient = { clientId: body.clientId, clientSecret: body.clientSecret };
   state.blogUrl = body.blogUrl;
+  state.blogIdInput = body.blogId || "";
   state.sheetIdInput = body.sheetId || "";
 
   const client = new google.auth.OAuth2(body.clientId, body.clientSecret, REDIRECT_URI);
+  const { codeVerifier, codeChallenge } = await client.generateCodeVerifierAsync();
+  state.codeVerifier = codeVerifier;
+
   const url = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: SCOPES,
+    code_challenge_method: "S256",
+    code_challenge: codeChallenge,
   });
 
   await sendJson(res, 200, { url });
@@ -93,7 +121,7 @@ async function handleOauthCallback(req, res, query) {
 
   try {
     const client = new google.auth.OAuth2(state.oauthClient.clientId, state.oauthClient.clientSecret, REDIRECT_URI);
-    const { tokens } = await client.getToken(code);
+    const { tokens } = await client.getToken({ code, codeVerifier: state.codeVerifier });
     state.refreshToken = tokens.refresh_token;
 
     if (!state.refreshToken) {
@@ -104,10 +132,43 @@ async function handleOauthCallback(req, res, query) {
 
     client.setCredentials(tokens);
 
-    // Auto-detect Blog ID
     const blogger = google.blogger({ version: "v3", auth: client });
-    const { data: blogData } = await blogger.blogs.getByUrl({ url: state.blogUrl });
-    state.blogId = blogData.id;
+
+    if (state.blogIdInput) {
+      // User supplied the Blog ID directly — skip URL auto-detection entirely,
+      // but still confirm it resolves so we fail fast with a clear message.
+      const { data } = await blogger.blogs.get({ blogId: state.blogIdInput });
+      state.blogId = data.id;
+    } else {
+      // Auto-detect Blog ID. Blogger's getByUrl can be picky about the exact
+      // URL form, so try a couple of reasonable variants before giving up.
+      const candidateUrls = [
+        state.blogUrl,
+        state.blogUrl.replace(/\/$/, ""),
+        state.blogUrl.replace(/\/$/, "") + "/",
+        state.blogUrl.replace(/^https:/, "http:"),
+      ];
+      let blogData = null;
+      let lastErr = null;
+      for (const candidate of [...new Set(candidateUrls)]) {
+        try {
+          const res = await blogger.blogs.getByUrl({ url: candidate });
+          blogData = res.data;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!blogData) {
+        throw new Error(
+          `Blogger API couldn't find a blog at any variant of "${state.blogUrl}" for this Google account. ` +
+          `Make sure you logged in with the Google account that owns/authors hajriahfajar.com on Blogger ` +
+          `(check at https://www.blogger.com with that account), or fill in the Blog ID field manually ` +
+          `(find it in the Blogger dashboard URL: blogger.com/blog/posts/<BLOG_ID>). Original error: ${lastErr?.message || lastErr}`
+        );
+      }
+      state.blogId = blogData.id;
+    }
 
     // Auto-create Sheet if none was given
     const sheets = google.sheets({ version: "v4", auth: client });
@@ -131,8 +192,9 @@ async function handleOauthCallback(req, res, query) {
     res.writeHead(200, { "Content-Type": "text/html" });
     res.end("<p>Connected! You can close this tab and go back to the setup page.</p><script>window.close();</script>");
   } catch (err) {
+    console.error("OAuth callback error:", err?.response?.data || err);
     res.writeHead(500, { "Content-Type": "text/html" });
-    res.end(`<p>Failed to connect: ${String(err.message || err)}</p>`);
+    res.end(`<p>Failed to connect: ${String(err.message || err)}</p><p>Close this tab and click "Connect Google Account" again to retry.</p>`);
   }
 }
 
@@ -201,10 +263,11 @@ async function handleSave(req, res) {
           ACTIVE_CATEGORIES: body.categories.join(","),
         };
 
+        const gh = await resolveGhBinary();
         const perSecret = {};
         for (const [name, value] of Object.entries(secretValues)) {
           try {
-            await execFileAsync("gh", ["secret", "set", name, "--repo", repo, "--body", value]);
+            await execFileAsync(gh, ["secret", "set", name, "--repo", repo, "--body", value]);
             perSecret[name] = "ok";
           } catch (err) {
             perSecret[name] = `error: ${String(err.message || err)}`;
