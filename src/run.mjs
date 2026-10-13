@@ -64,7 +64,9 @@ async function main() {
   await ensureHeaderRow(auth, config.sheetId);
   const pastLog = await readLogRows(auth, config.sheetId);
 
-  if (alreadyHandledToday(pastLog, config.publishWindow.timezone)) {
+  if (process.env.FORCE_RUN === "true") {
+    console.log("FORCE_RUN=true — skipping the already-handled-today guard (manual test only, never set this in the scheduled workflow).");
+  } else if (alreadyHandledToday(pastLog, config.publishWindow.timezone)) {
     console.log("Today already has a published/failed row in the log — skipping (prevents double-posting if slots ever overlap).");
     return;
   }
@@ -85,8 +87,36 @@ async function main() {
   console.log(`Topic chosen: [${category.label}] "${topic.titleId}" / "${topic.titleEn}"`);
 
   console.log("Writing full article...");
-  let rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
-  let parsed = parseGeminiArticleResponse(rawResponse);
+  const MAX_WRITE_ATTEMPTS = 2;
+  let parsed = null;
+  let writeFailureReason = null;
+  for (let writeAttempt = 1; writeAttempt <= MAX_WRITE_ATTEMPTS; writeAttempt++) {
+    try {
+      const rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
+      parsed = parseGeminiArticleResponse(rawResponse);
+      writeFailureReason = null;
+      break;
+    } catch (err) {
+      writeFailureReason = err.message;
+      console.log(`Gemini's response (attempt ${writeAttempt}/${MAX_WRITE_ATTEMPTS}) didn't parse: ${err.message}`);
+    }
+  }
+
+  if (!parsed) {
+    console.error(`Could not get a parseable article from Gemini after ${MAX_WRITE_ATTEMPTS} attempt(s). NOT publishing.`);
+    await appendLogRow(auth, config.sheetId, {
+      date: new Date().toISOString(),
+      status: "failed",
+      category: category.label,
+      titleId: topic.titleId,
+      titleEn: topic.titleEn,
+      targetKeyword: topic.targetKeyword,
+      reason: `Unparseable response: ${writeFailureReason}`,
+    });
+    process.exitCode = 1;
+    return;
+  }
+
   let result = validateArticle(parsed);
 
   let attempt = 1;
@@ -122,25 +152,27 @@ async function main() {
   }
 
   console.log("Validation passed. Generating thumbnail image...");
-  const pollinationsUrl = buildThumbnailUrl(parsed.meta.thumbnailPrompt);
-
-  console.log("Mirroring thumbnail to our own R2 bucket (so it doesn't depend on Pollinations staying up long-term)...");
   const r2Client = createR2Client(config.r2);
   const slug = topic.targetKeyword
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
   const key = `thumbnails/${dateStringInTz(new Date(), config.publishWindow.timezone)}-${slug}-${Math.floor(Math.random() * 1e6)}.jpg`;
-  const imageUrl = await mirrorImageToR2({
-    client: r2Client,
-    bucket: config.r2.bucket,
-    publicBaseUrl: config.r2.publicBaseUrl,
-    sourceUrl: pollinationsUrl,
-    key,
-  });
 
-  const imageHtml = imgTag(imageUrl, parsed.meta.altText);
-  const finalHtml = insertImageIntoDivs(parsed.html, imageHtml);
+  let finalHtml = parsed.html;
+  try {
+    console.log("Mirroring thumbnail to our own R2 bucket (so it doesn't depend on Pollinations staying up long-term)...");
+    const imageUrl = await mirrorImageToR2({
+      client: r2Client,
+      bucket: config.r2.bucket,
+      publicBaseUrl: config.r2.publicBaseUrl,
+      buildSourceUrl: () => buildThumbnailUrl(parsed.meta.thumbnailPrompt),
+      key,
+    });
+    finalHtml = insertImageIntoDivs(parsed.html, imgTag(imageUrl, parsed.meta.altText));
+  } catch (err) {
+    console.warn(`Thumbnail generation/mirroring failed after retries (${err.message}). Publishing WITHOUT an image rather than losing a good article.`);
+  }
 
   console.log(config.draftMode ? "Saving as DRAFT on Blogger (DRAFT_MODE=true)..." : "Publishing to Blogger...");
   const published = await publishPost(auth, {
