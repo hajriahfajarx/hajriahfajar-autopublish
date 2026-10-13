@@ -91,14 +91,22 @@ async function main() {
   let parsed = null;
   let writeFailureReason = null;
   for (let writeAttempt = 1; writeAttempt <= MAX_WRITE_ATTEMPTS; writeAttempt++) {
+    let rawResponse;
     try {
-      const rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
+      rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
       parsed = parseGeminiArticleResponse(rawResponse);
       writeFailureReason = null;
       break;
     } catch (err) {
       writeFailureReason = err.message;
       console.log(`Gemini's response (attempt ${writeAttempt}/${MAX_WRITE_ATTEMPTS}) didn't parse: ${err.message}`);
+      if (rawResponse) {
+        console.log(`--- Raw response length: ${rawResponse.length} chars ---`);
+        console.log(`--- Last 500 chars (to check for truncation) ---\n${rawResponse.slice(-500)}`);
+        console.log(`--- First 500 chars ---\n${rawResponse.slice(0, 500)}`);
+      } else {
+        console.log("--- No raw response at all (the Gemini call itself threw) ---");
+      }
     }
   }
 
