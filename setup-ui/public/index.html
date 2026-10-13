@@ -63,7 +63,8 @@
   <label>Bucket Name</label>
   <input type="text" id="r2BucketName" placeholder="hajriahfajar-thumbnails" />
   <label>Public Base URL</label>
-  <input type="text" id="r2PublicBaseUrl" placeholder="https://pub-xxxxxxxx.r2.dev" />
+  <input type="text" id="r2PublicBaseUrl" placeholder="https://img.yourdomain.com" />
+  <div class="hint">Pakai custom domain kamu sendiri (lewat `wrangler r2 bucket domain add`), BUKAN URL `*.r2.dev` bawaan — domain `.r2.dev` dipakai bersama semua pengguna R2 gratis dan bisa terblokir oleh ISP tertentu (dialami langsung saat setup ini). Pastikan juga domain zone-nya TIDAK dalam "Under Attack Mode", karena itu memblokir image sub-resource juga.</div>
 
   <h2>4. Kategori yang diikutkan di rotasi otomatis</h2>
   <div class="cat"><input type="checkbox" id="cat-digital-insights" checked /><label style="margin:0" for="cat-digital-insights">Digital Insights</label></div>
