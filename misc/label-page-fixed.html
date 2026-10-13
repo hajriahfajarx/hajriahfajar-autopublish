@@ -1,0 +1,237 @@
+<!-- ===== HALAMAN GABUNGAN LABEL: Technology & Digital — mulai ===== -->
+<div class="hf-page-fullwidth" id="hf-page-fullwidth">
+<style>
+.hf-page-fullwidth{
+  box-sizing: border-box;
+  padding: 60px 60px;
+  font-family: inherit;
+  overflow-x: hidden;
+}
+
+.hf-page-inner{
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.hf-page-header{border-bottom:1px solid #e2e2e2;padding-bottom:14px;margin-bottom:20px}
+.hf-page-header h1{font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px;color:#1a1a1a;border-bottom:3px solid #F57C00;display:inline-block;padding-bottom:8px}
+.hf-page-desc{font-size:13px;color:#888;margin:8px 0 0}
+
+.hf-page-filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+.hf-page-chip{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:7px 14px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer;font-family:inherit}
+.hf-page-chip:hover{border-color:#F57C00;color:#F57C00}
+.hf-page-chip.hf-chip-active{background:#F57C00;border-color:#F57C00;color:#fff}
+
+.hf-page-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px 22px;overflow-x:hidden}
+.hf-page-card{display:block;text-decoration:none;color:inherit;min-width:0}
+.hf-page-thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:#e9e9e9;border-radius:4px}
+.hf-page-card-body{padding-top:10px;text-align:left!important}
+.hf-page-meta{display:flex;align-items:center;gap:9px;margin-bottom:6px;text-align:left!important}
+.hf-page-badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#F57C00!important}
+.hf-page-date{font-size:12px;color:#999}
+.hf-page-title{font-size:15px;font-weight:700;line-height:1.35;margin:0;color:#1a1a1a!important;text-align:left!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hf-page-card:hover .hf-page-title{color:#c0392b!important}
+
+@media (max-width:900px){
+  .hf-page-fullwidth{padding:30px 24px}
+  .hf-page-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  .hf-page-fullwidth{padding:24px 16px}
+  .hf-page-grid{grid-template-columns:1fr}
+}
+
+.hf-page-loading{font-size:13px;color:#999;padding:30px 0;text-align:center}
+.hf-page-empty{font-size:13px;color:#999;padding:30px 0;text-align:center}
+.hf-page-loadmore-wrap{text-align:center;margin-top:28px}
+.hf-page-loadmore{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:12px 28px;border-radius:24px;border:1px solid #F57C00;background:#fff;color:#F57C00;cursor:pointer;font-family:inherit}
+.hf-page-loadmore:hover{background:#F57C00;color:#fff}
+.hf-page-loadmore[disabled]{opacity:.4;cursor:default}
+</style>
+
+<div class="hf-page-inner" id="hf-page-root">
+
+  <div class="hf-page-filters" id="hf-page-filters"></div>
+  <div class="hf-page-grid" id="hf-page-list"><div class="hf-page-loading">Loading…</div></div>
+  <div class="hf-page-loadmore-wrap" id="hf-page-loadmore-wrap" style="display:none">
+    <button type="button" class="hf-page-loadmore" id="hf-page-loadmore">Load More</button>
+  </div>
+</div>
+</div>
+
+<script>
+(function(){
+  // Selaraskan lebar wrapper dengan lebar ASLI container utama tema (#content-wrap-page),
+  // BUKAN lebar browser/viewport. Tema ini membatasi <html> sendiri ke lebar tertentu
+  // (var(--theme-width)) dan membungkus halaman Page dalam .post-outer-single (max-width:800px).
+  // Jadi "lebar penuh" yang benar dan aman adalah lebar #content-wrap-page (wadah tema
+  // yang sesungguhnya), bukan window.innerWidth (yang bisa melebihi batas desain tema itu
+  // sendiri dan menyebabkan salah hitung/terpotong).
+  var fwEl = document.getElementById("hf-page-fullwidth");
+  function syncFullWidth(){
+    fwEl.style.marginLeft = "";
+    fwEl.style.width = "";
+    var targetEl = document.getElementById("content-wrap-page") ||
+                   document.getElementById("wrapper") ||
+                   fwEl.parentElement;
+    if (!targetEl) return;
+    var targetRect = targetEl.getBoundingClientRect();
+    var selfRect = fwEl.getBoundingClientRect();
+    fwEl.style.marginLeft = (targetRect.left - selfRect.left) + "px";
+    fwEl.style.width = targetRect.width + "px";
+  }
+  syncFullWidth();
+  window.addEventListener("resize", syncFullWidth);
+  window.addEventListener("orientationchange", syncFullWidth);
+
+  var BLOG_BASE = "https://www.hajriahfajar.com";
+  var LABELS = ["Digital Insights", "Technology", "Basic IT", "Cyber Security"];
+  var PER_LABEL_FETCH = 40;   // maksimal artikel yang diambil per label dari feed Blogger
+  var PAGE_SIZE = 12;         // jumlah artikel yang ditampilkan tiap klik "Muat Lebih Banyak" (kelipatan 3 kolom)
+
+  var listEl = document.getElementById("hf-page-list");
+  var filtersEl = document.getElementById("hf-page-filters");
+  var loadMoreWrap = document.getElementById("hf-page-loadmore-wrap");
+  var loadMoreBtn = document.getElementById("hf-page-loadmore");
+
+  var allCards = [];
+  var activeLabel = null;
+  var shown = 0;
+  var cbCounter = 0;
+
+  // Blogger hanya mengisi media$thumbnail untuk gambar yang di-host di domain
+  // Blogger/Google sendiri (gambar yang di-upload lewat editor Blogger).
+  // Postingan auto-publish pakai gambar eksternal (di-mirror ke R2 sendiri),
+  // jadi media$thumbnail-nya selalu kosong untuk postingan itu.
+  function extractFirstImg(html){
+    if (!html) return null;
+    var m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return m ? m[1] : null;
+  }
+
+  function fetchLabelJSON(label, maxResults){
+    return new Promise(function(resolve){
+      var cbName = "hfPageCb" + (cbCounter++);
+      window[cbName] = function(data){
+        resolve((data && data.feed && data.feed.entry) ? data.feed.entry : []);
+        delete window[cbName];
+        script.remove();
+      };
+      var script = document.createElement("script");
+      // "default" (bukan "summary") supaya field "content" (HTML penuh) ikut
+      // terkirim — dibutuhkan untuk fallback gambar di bawah. Membutuhkan
+      // Site Feed = "Full" di Blogger Settings > Other.
+      script.src = BLOG_BASE + "/feeds/posts/default/-/" + encodeURIComponent(label) +
+        "?alt=json-in-script&max-results=" + maxResults + "&callback=" + cbName;
+      script.onerror = function(){ resolve([]); delete window[cbName]; };
+      document.body.appendChild(script);
+    });
+  }
+
+  function cleanExcerpt(summaryRaw, title){
+    var text = (summaryRaw || "").replace(/\s+/g, " ").trim();
+    text = text.replace(/🌐\s*English/gi, "").replace(/🇮🇩\s*Bahasa Indonesia/gi, "")
+               .replace(/Welcome to Hajriah Fajar:?/gi, "");
+    var t = (title || "").trim();
+    var idx = t ? text.indexOf(t) : -1;
+    if (idx !== -1) text = text.slice(idx + t.length);
+    text = text.trim();
+    if (text.length > 160) text = text.slice(0, 160).replace(/\s+\S*$/, "") + "…";
+    return text;
+  }
+
+  function matchBadge(entry, labels){
+    var cats = (entry.category || []).map(function(c){ return c.term; });
+    for (var i = 0; i < labels.length; i++) {
+      if (cats.indexOf(labels[i]) !== -1) return labels[i];
+    }
+    return labels[0];
+  }
+
+  function entryToCard(entry, labels){
+    var url = "#";
+    for (var i = 0; i < (entry.link || []).length; i++) {
+      if (entry.link[i].rel === "alternate") { url = entry.link[i].href; break; }
+    }
+    var title = entry.title ? entry.title.$t : "(tanpa judul)";
+    var published = entry.published ? entry.published.$t : null;
+    var dateStr = published ? new Date(published).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "";
+    var thumb = entry.media$thumbnail ? entry.media$thumbnail.url.replace(/\/s72-c\//, "/w400-h250-c/") : null;
+    if (!thumb) {
+      thumb = extractFirstImg(entry.content && entry.content.$t);
+    }
+    var excerpt = cleanExcerpt(entry.summary ? entry.summary.$t : "", title);
+    return {
+      id: entry.id.$t, url: url, title: title, published: published,
+      dateStr: dateStr, thumb: thumb, excerpt: excerpt, badge: matchBadge(entry, labels)
+    };
+  }
+
+  function thumbOr(card){
+    return card.thumb
+      ? "<img class='hf-page-thumb' loading='lazy' src='" + card.thumb + "' alt='" + card.title.replace(/'/g, "&#39;") + "'>"
+      : "<div class='hf-page-thumb'></div>";
+  }
+
+  function cardHTML(card){
+    return "<a class='hf-page-card' href='" + card.url + "'>" + thumbOr(card) +
+      "<div class='hf-page-card-body'>" +
+      "<div class='hf-page-meta'><span class='hf-page-badge'>" + card.badge.toUpperCase() + "</span>" +
+      "<span class='hf-page-date'>" + card.dateStr + "</span></div>" +
+      "<div class='hf-page-title'>" + card.title + "</div></div></a>";
+  }
+
+  function currentFiltered(){
+    if (!activeLabel) return allCards;
+    return allCards.filter(function(c){ return c.badge === activeLabel; });
+  }
+
+  function renderList(reset){
+    var filtered = currentFiltered();
+    if (reset) shown = 0;
+    if (filtered.length === 0) {
+      listEl.innerHTML = "<div class='hf-page-empty'>Belum ada artikel untuk label ini.</div>";
+      loadMoreWrap.style.display = "none";
+      return;
+    }
+    var upTo = Math.min(shown + PAGE_SIZE, filtered.length);
+    var toRender = filtered.slice(0, upTo);
+    listEl.innerHTML = toRender.map(cardHTML).join("");
+    shown = upTo;
+    loadMoreWrap.style.display = shown < filtered.length ? "block" : "none";
+  }
+
+  function renderFilters(){
+    var chips = ["<button type='button' class='hf-page-chip hf-chip-active' data-label=''>Semua</button>"];
+    LABELS.forEach(function(l){
+      chips.push("<button type='button' class='hf-page-chip' data-label=\"" + l.replace(/"/g, "&quot;") + "\">" + l + "</button>");
+    });
+    filtersEl.innerHTML = chips.join("");
+    filtersEl.querySelectorAll(".hf-page-chip").forEach(function(chip){
+      chip.addEventListener("click", function(){
+        filtersEl.querySelectorAll(".hf-page-chip").forEach(function(c){ c.classList.remove("hf-chip-active"); });
+        chip.classList.add("hf-chip-active");
+        activeLabel = chip.getAttribute("data-label") || null;
+        renderList(true);
+      });
+    });
+  }
+
+  loadMoreBtn.addEventListener("click", function(){ renderList(false); });
+
+  Promise.all(LABELS.map(function(l){ return fetchLabelJSON(l, PER_LABEL_FETCH); }))
+    .then(function(results){
+      var seen = {};
+      results.forEach(function(entries){
+        entries.forEach(function(entry){
+          var card = entryToCard(entry, LABELS);
+          if (!seen[card.id]) { seen[card.id] = true; allCards.push(card); }
+        });
+      });
+      allCards.sort(function(a, b){ return new Date(b.published) - new Date(a.published); });
+      renderFilters();
+      renderList(true);
+    });
+})();
+</script>
+<!-- ===== HALAMAN GABUNGAN LABEL: Technology & Digital — selesai ===== -->
