@@ -74,8 +74,6 @@ $("saveBtn").addEventListener("click", async () => {
     r2SecretAccessKey: $("r2SecretAccessKey").value.trim(),
     r2BucketName: $("r2BucketName").value.trim(),
     r2PublicBaseUrl: $("r2PublicBaseUrl").value.trim(),
-    windowStart: $("windowStart").value,
-    windowEnd: $("windowEnd").value,
     categories,
     pushToGithub: $("pushToGithub").checked,
   };

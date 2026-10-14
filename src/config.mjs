@@ -36,8 +36,11 @@ export function loadConfig() {
       publicBaseUrl: required("R2_PUBLIC_BASE_URL"),
     },
     publishWindow: {
-      start: process.env.PUBLISH_WINDOW_START || "19:00",
-      end: process.env.PUBLISH_WINDOW_END || "20:30",
+      // Which of the 3 daily windows (morning/midday/evening) this run
+      // belongs to — set by the GitHub Actions workflow from check-slot's
+      // output. "manual" for workflow_dispatch / local runs (dedup is
+      // skipped for those, see alreadyHandledToday in run.mjs).
+      id: process.env.PUBLISH_WINDOW_ID || "manual",
       timezone: process.env.PUBLISH_TIMEZONE || "Asia/Jakarta",
     },
     activeCategories: process.env.ACTIVE_CATEGORIES || "digital-insights,faith-society,productivity,performance-mindset",

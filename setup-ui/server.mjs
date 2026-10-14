@@ -224,8 +224,6 @@ R2_ACCESS_KEY_ID=${values.r2AccessKeyId}
 R2_SECRET_ACCESS_KEY=${values.r2SecretAccessKey}
 R2_BUCKET_NAME=${values.r2BucketName}
 R2_PUBLIC_BASE_URL=${values.r2PublicBaseUrl}
-PUBLISH_WINDOW_START=${values.windowStart}
-PUBLISH_WINDOW_END=${values.windowEnd}
 PUBLISH_TIMEZONE=Asia/Jakarta
 ACTIVE_CATEGORIES=${values.categories.join(",")}
 `;
@@ -266,8 +264,6 @@ async function handleSave(req, res) {
           R2_SECRET_ACCESS_KEY: body.r2SecretAccessKey,
           R2_BUCKET_NAME: body.r2BucketName,
           R2_PUBLIC_BASE_URL: body.r2PublicBaseUrl,
-          PUBLISH_WINDOW_START: body.windowStart,
-          PUBLISH_WINDOW_END: body.windowEnd,
           PUBLISH_TIMEZONE: "Asia/Jakarta",
           ACTIVE_CATEGORIES: body.categories.join(","),
         };

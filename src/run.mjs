@@ -20,10 +20,11 @@ function dateStringInTz(date, timeZone) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-function alreadyHandledToday(pastLog, timeZone) {
+function alreadyHandledThisWindowToday(pastLog, timeZone, windowId) {
   const today = dateStringInTz(new Date(), timeZone);
   return pastLog.some((row) => {
     if (!row.date || (row.status !== "published" && row.status !== "failed")) return false;
+    if (row.window !== windowId) return false;
     const rowDate = new Date(row.date);
     if (Number.isNaN(rowDate.valueOf())) return false;
     return dateStringInTz(rowDate, timeZone) === today;
@@ -64,10 +65,13 @@ async function main() {
   await ensureHeaderRow(auth, config.sheetId);
   const pastLog = await readLogRows(auth, config.sheetId);
 
+  const windowId = config.publishWindow.id;
   if (process.env.FORCE_RUN === "true") {
-    console.log("FORCE_RUN=true — skipping the already-handled-today guard (manual test only, never set this in the scheduled workflow).");
-  } else if (alreadyHandledToday(pastLog, config.publishWindow.timezone)) {
-    console.log("Today already has a published/failed row in the log — skipping (prevents double-posting if slots ever overlap).");
+    console.log("FORCE_RUN=true — skipping the already-handled-this-window-today guard (manual test only, never set this in the scheduled workflow).");
+  } else if (windowId === "manual") {
+    console.log('PUBLISH_WINDOW_ID is "manual" (workflow_dispatch or local run) — dedup guard skipped, this is an intentional extra run.');
+  } else if (alreadyHandledThisWindowToday(pastLog, config.publishWindow.timezone, windowId)) {
+    console.log(`The "${windowId}" window already has a published/failed row today — skipping (prevents double-posting if slots ever overlap).`);
     return;
   }
 
@@ -120,6 +124,7 @@ async function main() {
       titleEn: topic.titleEn,
       targetKeyword: topic.targetKeyword,
       reason: `Unparseable response: ${writeFailureReason}`,
+      window: windowId,
     });
     process.exitCode = 1;
     return;
@@ -153,6 +158,7 @@ async function main() {
       titleEn: topic.titleEn,
       targetKeyword: topic.targetKeyword,
       reason: result.issues.join(" | "),
+      window: windowId,
     });
 
     process.exitCode = 1;
@@ -201,6 +207,7 @@ async function main() {
     titleEn: topic.titleEn,
     targetKeyword: topic.targetKeyword,
     postUrl: published.url,
+    window: windowId,
   });
 
   console.log("Done.");

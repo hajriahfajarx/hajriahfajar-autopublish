@@ -2,19 +2,35 @@ name: Daily auto-publish
 
 # Instead of sleeping inside the runner (which burns billable Actions
 # minutes for nothing), there are several fixed cron triggers spread across
-# the publish window. A dependency-free pre-check (scripts/check-slot.mjs)
-# runs first and picks exactly one of them per day via a deterministic hash
-# of today's date — every other trigger exits in a couple of seconds without
-# installing anything. See scripts/check-slot.mjs for the slot map; it must
-# stay in sync with the cron entries below.
+# 3 daily windows (morning/midday/evening). A dependency-free pre-check
+# (scripts/check-slot.mjs) runs first and picks exactly one slot per window
+# per day via a deterministic hash of today's date + window name — every
+# other trigger exits in a couple of seconds without installing anything.
+# See scripts/check-slot.mjs for the slot map; it must stay in sync with the
+# cron entries below.
 on:
   schedule:
-    - cron: "0 12 * * *" # 19:00 WIB — slot 0
-    - cron: "15 12 * * *" # 19:15 WIB — slot 1
-    - cron: "30 12 * * *" # 19:30 WIB — slot 2
-    - cron: "45 12 * * *" # 19:45 WIB — slot 3
-    - cron: "0 13 * * *" # 20:00 WIB — slot 4
-    - cron: "15 13 * * *" # 20:15 WIB — slot 5
+    # Morning window: 09:00-10:30 WIB
+    - cron: "0 2 * * *"
+    - cron: "15 2 * * *"
+    - cron: "30 2 * * *"
+    - cron: "45 2 * * *"
+    - cron: "0 3 * * *"
+    - cron: "15 3 * * *"
+    # Midday window: 13:00-14:30 WIB
+    - cron: "0 6 * * *"
+    - cron: "15 6 * * *"
+    - cron: "30 6 * * *"
+    - cron: "45 6 * * *"
+    - cron: "0 7 * * *"
+    - cron: "15 7 * * *"
+    # Evening window: 19:00-20:30 WIB
+    - cron: "0 12 * * *"
+    - cron: "15 12 * * *"
+    - cron: "30 12 * * *"
+    - cron: "45 12 * * *"
+    - cron: "0 13 * * *"
+    - cron: "15 13 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -22,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
+      window: ${{ steps.check.outputs.window }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -63,8 +80,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
-          PUBLISH_WINDOW_START: ${{ secrets.PUBLISH_WINDOW_START }}
-          PUBLISH_WINDOW_END: ${{ secrets.PUBLISH_WINDOW_END }}
+          PUBLISH_WINDOW_ID: ${{ needs.check-slot.outputs.window }}
           PUBLISH_TIMEZONE: ${{ secrets.PUBLISH_TIMEZONE }}
           ACTIVE_CATEGORIES: ${{ secrets.ACTIVE_CATEGORIES }}
         run: npm run run
