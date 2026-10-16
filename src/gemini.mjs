@@ -105,6 +105,78 @@ Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) 
 }
 
 /**
+ * Morning-window variant of pickTopic: forces category to Digital Insights
+ * and picks from real, current tech news headlines (fetched for free from
+ * public RSS feeds — see techNews.mjs) instead of the model's static
+ * training data. Gemini's job here is judgment, not research: pick the ONE
+ * candidate that's a genuinely interesting, appropriate mainstream tech
+ * story (not crime/legal drama/disturbing content, which raw news feeds
+ * absolutely do include — hit this for real when the top item from a feed
+ * was a criminal case), then structure it into our topic JSON schema.
+ *
+ * (Originally tried Gemini's own `googleSearch` grounding tool instead of
+ * RSS, but that requires billing enabled on Gemini 3.x — no free tier for
+ * grounding. RSS is free and avoids that entirely.)
+ */
+export async function pickTrendingTopic(ai, models, { newsCandidates, pastLog, extraAvoid = [] }) {
+  if (!newsCandidates.length) {
+    throw new Error("No uncovered news candidates available to pick a trending topic from.");
+  }
+
+  const candidateList = newsCandidates
+    .map((item, i) => `${i + 1}. [${item.source}] "${item.title}" — ${item.description} (${item.pubDate})`)
+    .join("\n");
+  const pastList = pastLog.length
+    ? pastLog.map((r) => `- [${r.category}] "${r.titleId}" / "${r.titleEn}" (keyword: ${r.targetKeyword})`).join("\n")
+    : "(belum ada artikel sebelumnya)";
+  const avoidExtra = extraAvoid.length ? `\n\nTopik ini JUGA sudah dicoba dan harus dihindari lagi:\n${extraAvoid.join("\n")}` : "";
+
+  const prompt = `Berikut daftar berita teknologi terbaru (real, dari RSS feed situs berita teknologi hari ini):
+
+${candidateList}
+
+Tugasmu: pilih SATU berita dari daftar di atas yang paling cocok dijadikan artikel blog teknologi untuk pembaca umum (hajriahfajar.com, kategori Digital Insights).
+
+Kriteria pemilihan — WAJIB dihindari:
+- Berita kriminal, kekerasan, konten tidak pantas/sensitif, atau isu hukum/pengadilan
+- Berita politik murni atau drama internal perusahaan yang tidak relevan ke pembaca umum
+- Berita yang sudah mirip dengan daftar yang pernah dibahas ini:
+${pastList}${avoidExtra}
+
+Pilih yang: produk/teknologi baru, update AI/software, tren yang sedang ramai dibicarakan, isu keamanan digital, atau hal yang relevan & menarik untuk pembaca umum.
+
+Setelah memilih, buat draft topik artikel blog dari berita tersebut (berbahasa Indonesia/Inggris), dengan sudut pandang yang relevan untuk pembaca umum (jelaskan kenapa ini penting/menarik untuk mereka, bukan cuma melaporkan berita apa adanya).
+
+Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) dengan skema persis seperti ini:
+{
+  "category": "digital-insights",
+  "titleId": "<judul draft Bahasa Indonesia>",
+  "titleEn": "<judul draft Bahasa Inggris>",
+  "searchIntent": "<Informational | How-to/Troubleshooting | Comparison | Opinion>",
+  "targetKeyword": "<target keyword utama, bahasa pencarian natural>",
+  "lsiKeywords": ["<keyword turunan 1>", "<keyword turunan 2>", "<keyword turunan 3>"],
+  "brief": "<2-3 kalimat sudut pandang/angle artikel ini, sebutkan juga sumber berita aslinya>",
+  "sourceUrl": "<link berita asli yang dipilih, dari daftar di atas>"
+}`;
+
+  const response = await generateContentWithFallback(ai, models, {
+    contents: prompt,
+    config: { responseMimeType: "application/json" },
+  });
+
+  const text = response.text;
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`Gemini pickTrendingTopic returned invalid JSON: ${text?.slice(0, 500)}`);
+  }
+
+  parsed.category = "digital-insights"; // force, regardless of what the model echoed back
+  return parsed;
+}
+
+/**
  * Fills the style-guide template's INPUT PENGGUNA placeholders and asks
  * Gemini to write the full BAGIAN A + BAGIAN B article.
  */

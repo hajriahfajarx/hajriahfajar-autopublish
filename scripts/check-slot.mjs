@@ -4,14 +4,14 @@
 // of sleeping (which would burn real GitHub Actions minutes for no reason —
 // the mistake this script replaces).
 //
-// How it works: there are 3 independent daily windows (morning/midday/
-// evening), each with several fixed cron triggers spread across it (one
-// every SLOT_MINUTES). Each day, a deterministic hash of today's date +
-// window name picks exactly one slot per window as "today's real slot" for
-// that window. Every trigger checks the cron expression GitHub says fired it
+// How it works: there are 2 independent daily windows (morning/evening),
+// each with several fixed cron triggers spread across it (one every
+// SLOT_MINUTES). Each day, a deterministic hash of today's date + window
+// name picks exactly one slot per window as "today's real slot" for that
+// window. Every trigger checks the cron expression GitHub says fired it
 // (github.event.schedule) against a static map; only the one matching
 // today's chosen slot for its window proceeds. This spreads posts across the
-// day (not clustered in one window) without ever sleeping in the runner.
+// day without ever sleeping in the runner.
 //
 // Keep this file dependency-free (Node builtins only) so it can run before
 // `npm ci`.
@@ -22,21 +22,12 @@ import { appendFileSync } from "node:fs";
 // Each cron maps to {window, slot}. Slot index is 0-based, spaced
 // SLOT_MINUTES apart starting at that window's start time.
 const CRON_MAP = {
-  // Morning window: 09:00-10:30 WIB = 02:00-03:30 UTC
-  "0 2 * * *": { window: "morning", slot: 0 },
-  "15 2 * * *": { window: "morning", slot: 1 },
-  "30 2 * * *": { window: "morning", slot: 2 },
-  "45 2 * * *": { window: "morning", slot: 3 },
-  "0 3 * * *": { window: "morning", slot: 4 },
-  "15 3 * * *": { window: "morning", slot: 5 },
-  // Midday window: 13:00-14:30 WIB = 06:00-07:30 UTC
-  "0 6 * * *": { window: "midday", slot: 0 },
-  "15 6 * * *": { window: "midday", slot: 1 },
-  "30 6 * * *": { window: "midday", slot: 2 },
-  "45 6 * * *": { window: "midday", slot: 3 },
-  "0 7 * * *": { window: "midday", slot: 4 },
-  "15 7 * * *": { window: "midday", slot: 5 },
-  // Evening window: 19:00-20:30 WIB = 12:00-13:30 UTC
+  // Morning window: 07:00-08:00 WIB = 00:00-01:00 UTC (4 slots, 15 min apart)
+  "0 0 * * *": { window: "morning", slot: 0 },
+  "15 0 * * *": { window: "morning", slot: 1 },
+  "30 0 * * *": { window: "morning", slot: 2 },
+  "45 0 * * *": { window: "morning", slot: 3 },
+  // Evening window: 19:00-20:30 WIB = 12:00-13:30 UTC (6 slots, 15 min apart)
   "0 12 * * *": { window: "evening", slot: 0 },
   "15 12 * * *": { window: "evening", slot: 1 },
   "30 12 * * *": { window: "evening", slot: 2 },
@@ -44,7 +35,7 @@ const CRON_MAP = {
   "0 13 * * *": { window: "evening", slot: 4 },
   "15 13 * * *": { window: "evening", slot: 5 },
 };
-const SLOTS_PER_WINDOW = 6;
+const SLOTS_PER_WINDOW = { morning: 4, evening: 6 };
 
 function todayDateString(timeZone) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -57,7 +48,7 @@ function todayDateString(timeZone) {
 
 function chosenSlotForWindow(dateStr, windowName) {
   const hash = createHash("sha256").update(`${dateStr}:${windowName}`).digest();
-  return hash[0] % SLOTS_PER_WINDOW;
+  return hash[0] % SLOTS_PER_WINDOW[windowName];
 }
 
 function writeOutput(name, value) {
@@ -87,7 +78,7 @@ if (eventName !== "schedule") {
   } else {
     const chosenSlot = chosenSlotForWindow(dateStr, entry.window);
     const proceed = entry.slot === chosenSlot;
-    console.log(`Date ${dateStr}, window "${entry.window}": chosen slot is ${chosenSlot}/${SLOTS_PER_WINDOW - 1}, this trigger is slot ${entry.slot} ("${scheduleCron}"). Proceed: ${proceed}`);
+    console.log(`Date ${dateStr}, window "${entry.window}": chosen slot is ${chosenSlot}/${SLOTS_PER_WINDOW[entry.window] - 1}, this trigger is slot ${entry.slot} ("${scheduleCron}"). Proceed: ${proceed}`);
     writeOutput("proceed", String(proceed));
     writeOutput("window", entry.window);
   }

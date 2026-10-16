@@ -3,10 +3,11 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { loadConfig } from "./config.mjs";
-import { getActiveCategories } from "./categories.mjs";
+import { getActiveCategories, ALL_CATEGORIES } from "./categories.mjs";
 import { getOAuthClient } from "./googleAuth.mjs";
 import { readLogRows, appendLogRow, ensureHeaderRow } from "./sheets.mjs";
-import { createGeminiClient, pickTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
+import { createGeminiClient, pickTopic, pickTrendingTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
+import { fetchLatestTechNews, filterUncoveredNewsItems } from "./techNews.mjs";
 import { parseGeminiArticleResponse } from "./parse.mjs";
 import { validateArticle } from "./validate.mjs";
 import { buildThumbnailUrl, imgTag } from "./image.mjs";
@@ -77,17 +78,29 @@ async function main() {
 
   console.log(`Loaded ${pastLog.length} past log row(s). Picking a new topic...`);
 
-  let topic = await pickTopic(ai, config.gemini.models, { categories, pastLog });
-  if (isLikelyDuplicate(topic, pastLog)) {
-    console.log("First topic suggestion looked like a duplicate, asking Gemini again with an explicit nudge...");
-    topic = await pickTopic(ai, config.gemini.models, {
-      categories,
-      pastLog,
-      extraAvoid: [`- "${topic.titleId}" / "${topic.titleEn}" (keyword: ${topic.targetKeyword})`],
-    });
+  const isMorning = windowId === "morning";
+  let newsCandidates = [];
+  if (isMorning) {
+    console.log("Morning window — fetching current tech news from RSS feeds (forced category: Digital Insights)...");
+    const newsItems = await fetchLatestTechNews();
+    newsCandidates = filterUncoveredNewsItems(newsItems, pastLog);
+    console.log(`Fetched ${newsItems.length} news item(s), ${newsCandidates.length} not yet covered.`);
   }
 
-  const category = categories.find((c) => c.slug === topic.category);
+  const pick = (extraAvoid = []) =>
+    isMorning
+      ? pickTrendingTopic(ai, config.gemini.models, { newsCandidates, pastLog, extraAvoid })
+      : pickTopic(ai, config.gemini.models, { categories, pastLog, extraAvoid });
+
+  let topic = await pick();
+  if (isLikelyDuplicate(topic, pastLog)) {
+    console.log("First topic suggestion looked like a duplicate, asking Gemini again with an explicit nudge...");
+    topic = await pick([`- "${topic.titleId}" / "${topic.titleEn}" (keyword: ${topic.targetKeyword})`]);
+  }
+
+  // Morning always forces Digital Insights, which may not be in the active
+  // rotation list (categories), so resolve against the full category table.
+  const category = isMorning ? ALL_CATEGORIES["digital-insights"] : categories.find((c) => c.slug === topic.category);
   console.log(`Topic chosen: [${category.label}] "${topic.titleId}" / "${topic.titleEn}"`);
 
   console.log("Writing full article...");
