@@ -1,6 +1,12 @@
 function extractField(text, label) {
   // Tolerates "Label:", "**Label:**", leading "- ", etc.
-  const re = new RegExp(`^[\\s\\-*]*${label}\\s*:?\\**\\s*(.+)$`, "im");
+  // NOTE: the colon is REQUIRED and the capture is `.*` (zero or more), not
+  // `.+` (one or more) -- with `.+`, a genuinely empty value makes the regex
+  // engine backtrack and let the capture group eat the colon itself (or even
+  // cross into the next line, since the old \s* before it also matches
+  // newlines), so "empty" never actually parsed as empty. Found via a real
+  // test case on the sibling novel-autopublish project, same bug here.
+  const re = new RegExp(`^[ \\t\\-*]*${label}\\**[ \\t]*:(.*)$`, "im");
   const match = text.match(re);
   return match ? match[1].trim() : "";
 }
