@@ -10,20 +10,32 @@ name: Daily auto-publish
 # cron entries below.
 on:
   schedule:
-    # Morning window: 07:00-08:00 WIB — trending tech news (Google Search
-    # grounded), forced to the Digital Insights category regardless of
+    # Morning window, COMPENSATED: configured 20:00-22:30 UTC (prev. UTC
+    # day) for a real-world landing around 07:00-09:30 WIB. GitHub was
+    # observed delivering this account's scheduled triggers ~3-4.5h late
+    # (likely queuing congestion on the common :00/:15/:30/:45 marks), so
+    # this is shifted earlier + uses uncommon minute offsets. Re-tune if the
+    # delay pattern changes. Trending tech news (Google Search grounded),
+    # forced to the Digital Insights category regardless of
     # ACTIVE_CATEGORIES. See pickTrendingTopic in src/gemini.mjs.
-    - cron: "0 0 * * *"
-    - cron: "15 0 * * *"
-    - cron: "30 0 * * *"
-    - cron: "45 0 * * *"
-    # Evening window: 19:00-20:30 WIB — normal category rotation
-    - cron: "0 12 * * *"
-    - cron: "15 12 * * *"
-    - cron: "30 12 * * *"
-    - cron: "45 12 * * *"
-    - cron: "0 13 * * *"
-    - cron: "15 13 * * *"
+    - cron: "7 20 * * *"
+    - cron: "22 20 * * *"
+    - cron: "37 20 * * *"
+    - cron: "52 20 * * *"
+    - cron: "7 21 * * *"
+    - cron: "22 21 * * *"
+    - cron: "37 21 * * *"
+    - cron: "52 21 * * *"
+    - cron: "7 22 * * *"
+    - cron: "22 22 * * *"
+    # Evening window, COMPENSATED: configured 08:00-09:30 UTC for a
+    # real-world landing around 19:00-20:30 WIB. Normal category rotation.
+    - cron: "7 8 * * *"
+    - cron: "22 8 * * *"
+    - cron: "37 8 * * *"
+    - cron: "52 8 * * *"
+    - cron: "7 9 * * *"
+    - cron: "22 9 * * *"
   workflow_dispatch: {}
 
 jobs:

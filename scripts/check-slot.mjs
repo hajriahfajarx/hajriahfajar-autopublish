@@ -19,23 +19,39 @@ import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
 
 // Must match the `schedule:` entries in .github/workflows/daily-post.yml.
-// Each cron maps to {window, slot}. Slot index is 0-based, spaced
-// SLOT_MINUTES apart starting at that window's start time.
+// Each cron maps to {window, slot}. Slot index is 0-based.
+//
+// IMPORTANT: these times are shifted EARLIER than the actual target WIB
+// windows, and use uncommon (:07/:22/:37/:52) minute offsets instead of
+// round ones. Observed in practice: GitHub was delivering this account's
+// scheduled triggers ~3-4.5h late (likely queuing congestion, since
+// everyone's workflows fire on the same popular :00/:15/:30/:45 marks).
+// Real target: morning 07:00-09:30 WIB, evening 19:00-20:30 WIB. Configured
+// below ~4h earlier (in UTC) to compensate. Re-tune if the observed delay
+// pattern changes.
 const CRON_MAP = {
-  // Morning window: 07:00-08:00 WIB = 00:00-01:00 UTC (4 slots, 15 min apart)
-  "0 0 * * *": { window: "morning", slot: 0 },
-  "15 0 * * *": { window: "morning", slot: 1 },
-  "30 0 * * *": { window: "morning", slot: 2 },
-  "45 0 * * *": { window: "morning", slot: 3 },
-  // Evening window: 19:00-20:30 WIB = 12:00-13:30 UTC (6 slots, 15 min apart)
-  "0 12 * * *": { window: "evening", slot: 0 },
-  "15 12 * * *": { window: "evening", slot: 1 },
-  "30 12 * * *": { window: "evening", slot: 2 },
-  "45 12 * * *": { window: "evening", slot: 3 },
-  "0 13 * * *": { window: "evening", slot: 4 },
-  "15 13 * * *": { window: "evening", slot: 5 },
+  // Morning (compensated): configured 20:00-22:30 UTC (prev. UTC day) for a
+  // real-world landing around 00:00-02:30 UTC = 07:00-09:30 WIB.
+  "7 20 * * *": { window: "morning", slot: 0 },
+  "22 20 * * *": { window: "morning", slot: 1 },
+  "37 20 * * *": { window: "morning", slot: 2 },
+  "52 20 * * *": { window: "morning", slot: 3 },
+  "7 21 * * *": { window: "morning", slot: 4 },
+  "22 21 * * *": { window: "morning", slot: 5 },
+  "37 21 * * *": { window: "morning", slot: 6 },
+  "52 21 * * *": { window: "morning", slot: 7 },
+  "7 22 * * *": { window: "morning", slot: 8 },
+  "22 22 * * *": { window: "morning", slot: 9 },
+  // Evening (compensated): configured 08:00-09:30 UTC for a real-world
+  // landing around 12:00-13:30 UTC = 19:00-20:30 WIB.
+  "7 8 * * *": { window: "evening", slot: 0 },
+  "22 8 * * *": { window: "evening", slot: 1 },
+  "37 8 * * *": { window: "evening", slot: 2 },
+  "52 8 * * *": { window: "evening", slot: 3 },
+  "7 9 * * *": { window: "evening", slot: 4 },
+  "22 9 * * *": { window: "evening", slot: 5 },
 };
-const SLOTS_PER_WINDOW = { morning: 4, evening: 6 };
+const SLOTS_PER_WINDOW = { morning: 10, evening: 6 };
 
 function todayDateString(timeZone) {
   return new Intl.DateTimeFormat("en-CA", {
