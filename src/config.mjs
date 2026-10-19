@@ -35,6 +35,10 @@ export function loadConfig() {
       bucket: required("R2_BUCKET_NAME"),
       publicBaseUrl: required("R2_PUBLIC_BASE_URL"),
     },
+    // Cloudflare Workers AI (thumbnail generation) -- same Cloudflare
+    // account as R2 above, just a different kind of credential (an API
+    // Token with Workers AI permission, not an S3-style access key).
+    cloudflareApiToken: required("CLOUDFLARE_API_TOKEN"),
     publishWindow: {
       // Which of the 3 daily windows (morning/midday/evening) this run
       // belongs to — set by the GitHub Actions workflow from check-slot's

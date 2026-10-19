@@ -69,6 +69,7 @@ $("saveBtn").addEventListener("click", async () => {
 
   const body = {
     geminiApiKey: $("geminiApiKey").value.trim(),
+    cloudflareApiToken: $("cloudflareApiToken").value.trim(),
     r2AccountId: $("r2AccountId").value.trim(),
     r2AccessKeyId: $("r2AccessKeyId").value.trim(),
     r2SecretAccessKey: $("r2SecretAccessKey").value.trim(),

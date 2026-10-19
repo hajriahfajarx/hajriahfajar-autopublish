@@ -10,8 +10,9 @@ import { createGeminiClient, pickTopic, pickTrendingTopic, writeArticle, fixArti
 import { fetchLatestTechNews, filterUncoveredNewsItems } from "./techNews.mjs";
 import { parseGeminiArticleResponse } from "./parse.mjs";
 import { validateArticle } from "./validate.mjs";
-import { buildThumbnailUrl, imgTag } from "./image.mjs";
-import { createR2Client, mirrorImageToR2 } from "./r2upload.mjs";
+import { imgTag } from "./image.mjs";
+import { createR2Client, uploadBufferToR2 } from "./r2upload.mjs";
+import { generateImageWithRetry } from "./cfImage.mjs";
 import { publishPost } from "./blogger.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -178,7 +179,7 @@ async function main() {
     return;
   }
 
-  console.log("Validation passed. Generating thumbnail image...");
+  console.log("Validation passed. Generating thumbnail image via Cloudflare Workers AI...");
   const r2Client = createR2Client(config.r2);
   const slug = topic.targetKeyword
     .toLowerCase()
@@ -188,17 +189,21 @@ async function main() {
 
   let finalHtml = parsed.html;
   try {
-    console.log("Mirroring thumbnail to our own R2 bucket (so it doesn't depend on Pollinations staying up long-term)...");
-    const imageUrl = await mirrorImageToR2({
+    const buffer = await generateImageWithRetry({
+      accountId: config.r2.accountId,
+      apiToken: config.cloudflareApiToken,
+      prompt: parsed.meta.thumbnailPrompt,
+    });
+    const imageUrl = await uploadBufferToR2({
       client: r2Client,
       bucket: config.r2.bucket,
       publicBaseUrl: config.r2.publicBaseUrl,
-      buildSourceUrl: () => buildThumbnailUrl(parsed.meta.thumbnailPrompt),
+      buffer,
       key,
     });
     finalHtml = insertImageIntoDivs(parsed.html, imgTag(imageUrl, parsed.meta.altText));
   } catch (err) {
-    console.warn(`Thumbnail generation/mirroring failed after retries (${err.message}). Publishing WITHOUT an image rather than losing a good article.`);
+    console.warn(`Thumbnail generation/upload failed after retries (${err.message}). Publishing WITHOUT an image rather than losing a good article.`);
   }
 
   console.log(config.draftMode ? "Saving as DRAFT on Blogger (DRAFT_MODE=true)..." : "Publishing to Blogger...");

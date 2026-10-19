@@ -219,6 +219,7 @@ GOOGLE_CLIENT_SECRET=${state.oauthClient?.clientSecret || ""}
 GOOGLE_REFRESH_TOKEN=${state.refreshToken || ""}
 BLOG_ID=${state.blogId || ""}
 SHEET_ID=${state.sheetId || ""}
+CLOUDFLARE_API_TOKEN=${values.cloudflareApiToken}
 R2_ACCOUNT_ID=${values.r2AccountId}
 R2_ACCESS_KEY_ID=${values.r2AccessKeyId}
 R2_SECRET_ACCESS_KEY=${values.r2SecretAccessKey}
@@ -259,6 +260,7 @@ async function handleSave(req, res) {
           GOOGLE_REFRESH_TOKEN: state.refreshToken || "",
           BLOG_ID: state.blogId || "",
           SHEET_ID: state.sheetId || "",
+          CLOUDFLARE_API_TOKEN: body.cloudflareApiToken,
           R2_ACCOUNT_ID: body.r2AccountId,
           R2_ACCESS_KEY_ID: body.r2AccessKeyId,
           R2_SECRET_ACCESS_KEY: body.r2SecretAccessKey,
