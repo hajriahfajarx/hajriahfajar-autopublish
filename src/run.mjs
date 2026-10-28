@@ -3,13 +3,14 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { loadConfig } from "./config.mjs";
-import { getActiveCategories, ALL_CATEGORIES } from "./categories.mjs";
+import { ALL_CATEGORIES } from "./categories.mjs";
 import { getOAuthClient } from "./googleAuth.mjs";
-import { readLogRows, appendLogRow, ensureHeaderRow } from "./sheets.mjs";
-import { createGeminiClient, pickTopic, pickTrendingTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
+import { readLogRows, appendLogRow, updateRow, ensureHeaderRow } from "./sheets.mjs";
+import { createGeminiClient, pickTrendingTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
 import { fetchLatestTechNews, filterUncoveredNewsItems } from "./techNews.mjs";
 import { parseGeminiArticleResponse } from "./parse.mjs";
 import { validateArticle } from "./validate.mjs";
+import { isLikelyDuplicate } from "./dedup.mjs";
 import { imgTag } from "./image.mjs";
 import { createR2Client, uploadBufferToR2 } from "./r2upload.mjs";
 import { generateImageWithRetry } from "./cfImage.mjs";
@@ -22,35 +23,20 @@ function dateStringInTz(date, timeZone) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-// Only "published" blocks the rest of today's slots for this window -- a
-// "failed" row (e.g. a transient Gemini 503 storm) must NOT block retries,
-// otherwise a single bad slot wastes the whole window's redundancy and the
-// window ends up with no article at all that day. Seen in practice: Gemini
-// occasionally has several-minutes-long overload spells that exhaust every
-// retry/fallback model; the next slot an hour later is often fine.
+// Only a terminal "posted" status blocks the rest of today's slots for this
+// window -- a "failed" row (e.g. a transient Gemini 503 storm) must NOT
+// block retries, otherwise a single bad slot wastes the whole window's
+// redundancy and the window ends up with no article at all that day.
+// "published" = morning's real-time path; "done" = evening's queue-consume
+// path (see below) -- both mean "this window is handled for today".
 function alreadyHandledThisWindowToday(pastLog, timeZone, windowId) {
   const today = dateStringInTz(new Date(), timeZone);
   return pastLog.some((row) => {
-    if (!row.date || row.status !== "published") return false;
+    if (!row.date || (row.status !== "published" && row.status !== "done")) return false;
     if (row.window !== windowId) return false;
     const rowDate = new Date(row.date);
     if (Number.isNaN(rowDate.valueOf())) return false;
     return dateStringInTz(rowDate, timeZone) === today;
-  });
-}
-
-function normalize(str) {
-  return (str || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function isLikelyDuplicate(topic, pastLog) {
-  const normTitleId = normalize(topic.titleId);
-  const normKeyword = normalize(topic.targetKeyword);
-  return pastLog.some((row) => {
-    return (
-      normalize(row.titleId) === normTitleId ||
-      normalize(row.targetKeyword) === normKeyword
-    );
   });
 }
 
@@ -61,43 +47,17 @@ function insertImageIntoDivs(html, imageHtml) {
   );
 }
 
-async function main() {
-  const config = loadConfig();
-
-  const categories = getActiveCategories(config.activeCategories);
+// Morning: unchanged real-time path -- picks from genuinely current RSS tech
+// news and writes it live, right now. NOT batched (see generate.mjs for why).
+async function runMorning(config, auth, ai, pastLog) {
   const styleGuideTemplate = readFileSync(path.join(__dirname, "..", "prompts", "style-guide.md"), "utf-8");
 
-  const auth = getOAuthClient(config.google);
-  const ai = createGeminiClient({ apiKey: config.gemini.apiKey });
+  console.log("Morning window — fetching current tech news from RSS feeds (forced category: Digital Insights)...");
+  const newsItems = await fetchLatestTechNews();
+  const newsCandidates = filterUncoveredNewsItems(newsItems, pastLog);
+  console.log(`Fetched ${newsItems.length} news item(s), ${newsCandidates.length} not yet covered.`);
 
-  await ensureHeaderRow(auth, config.sheetId);
-  const pastLog = await readLogRows(auth, config.sheetId);
-
-  const windowId = config.publishWindow.id;
-  if (process.env.FORCE_RUN === "true") {
-    console.log("FORCE_RUN=true — skipping the already-handled-this-window-today guard (manual test only, never set this in the scheduled workflow).");
-  } else if (windowId === "manual") {
-    console.log('PUBLISH_WINDOW_ID is "manual" (workflow_dispatch or local run) — dedup guard skipped, this is an intentional extra run.');
-  } else if (alreadyHandledThisWindowToday(pastLog, config.publishWindow.timezone, windowId)) {
-    console.log(`The "${windowId}" window already has a published row today — skipping (prevents double-posting if slots ever overlap).`);
-    return;
-  }
-
-  console.log(`Loaded ${pastLog.length} past log row(s). Picking a new topic...`);
-
-  const isMorning = windowId === "morning";
-  let newsCandidates = [];
-  if (isMorning) {
-    console.log("Morning window — fetching current tech news from RSS feeds (forced category: Digital Insights)...");
-    const newsItems = await fetchLatestTechNews();
-    newsCandidates = filterUncoveredNewsItems(newsItems, pastLog);
-    console.log(`Fetched ${newsItems.length} news item(s), ${newsCandidates.length} not yet covered.`);
-  }
-
-  const pick = (extraAvoid = []) =>
-    isMorning
-      ? pickTrendingTopic(ai, config.gemini.models, { newsCandidates, pastLog, extraAvoid })
-      : pickTopic(ai, config.gemini.models, { categories, pastLog, extraAvoid });
+  const pick = (extraAvoid = []) => pickTrendingTopic(ai, config.gemini.models, { newsCandidates, pastLog, extraAvoid });
 
   let topic = await pick();
   if (isLikelyDuplicate(topic, pastLog)) {
@@ -105,9 +65,7 @@ async function main() {
     topic = await pick([`- "${topic.titleId}" / "${topic.titleEn}" (keyword: ${topic.targetKeyword})`]);
   }
 
-  // Morning always forces Digital Insights, which may not be in the active
-  // rotation list (categories), so resolve against the full category table.
-  const category = isMorning ? ALL_CATEGORIES["digital-insights"] : categories.find((c) => c.slug === topic.category);
+  const category = ALL_CATEGORIES["digital-insights"];
   console.log(`Topic chosen: [${category.label}] "${topic.titleId}" / "${topic.titleEn}"`);
 
   console.log("Writing full article...");
@@ -144,7 +102,7 @@ async function main() {
       titleEn: topic.titleEn,
       targetKeyword: topic.targetKeyword,
       reason: `Unparseable response: ${writeFailureReason}`,
-      window: windowId,
+      window: "morning",
     });
     process.exitCode = 1;
     return;
@@ -178,7 +136,7 @@ async function main() {
       titleEn: topic.titleEn,
       targetKeyword: topic.targetKeyword,
       reason: result.issues.join(" | "),
-      window: windowId,
+      window: "morning",
     });
 
     process.exitCode = 1;
@@ -186,31 +144,7 @@ async function main() {
   }
 
   console.log("Validation passed. Generating thumbnail image via Cloudflare Workers AI...");
-  const r2Client = createR2Client(config.r2);
-  const slug = topic.targetKeyword
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  const key = `thumbnails/${dateStringInTz(new Date(), config.publishWindow.timezone)}-${slug}-${Math.floor(Math.random() * 1e6)}.jpg`;
-
-  let finalHtml = parsed.html;
-  try {
-    const buffer = await generateImageWithRetry({
-      accountId: config.r2.accountId,
-      apiToken: config.cloudflareApiToken,
-      prompt: parsed.meta.thumbnailPrompt,
-    });
-    const imageUrl = await uploadBufferToR2({
-      client: r2Client,
-      bucket: config.r2.bucket,
-      publicBaseUrl: config.r2.publicBaseUrl,
-      buffer,
-      key,
-    });
-    finalHtml = insertImageIntoDivs(parsed.html, imgTag(imageUrl, parsed.meta.altText));
-  } catch (err) {
-    console.warn(`Thumbnail generation/upload failed after retries (${err.message}). Publishing WITHOUT an image rather than losing a good article.`);
-  }
+  const finalHtml = await addThumbnail(config, parsed.html, parsed.meta.thumbnailPrompt, parsed.meta.altText, topic.targetKeyword);
 
   console.log(config.draftMode ? "Saving as DRAFT on Blogger (DRAFT_MODE=true)..." : "Publishing to Blogger...");
   const published = await publishPost(auth, {
@@ -231,8 +165,100 @@ async function main() {
     titleEn: topic.titleEn,
     targetKeyword: topic.targetKeyword,
     postUrl: published.url,
-    window: windowId,
+    window: "morning",
   });
+}
+
+async function addThumbnail(config, html, thumbnailPrompt, altText, slugSource) {
+  const r2Client = createR2Client(config.r2);
+  const slug = slugSource
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  const key = `thumbnails/${dateStringInTz(new Date(), config.publishWindow.timezone)}-${slug}-${Math.floor(Math.random() * 1e6)}.jpg`;
+
+  try {
+    const buffer = await generateImageWithRetry({
+      accountId: config.r2.accountId,
+      apiToken: config.cloudflareApiToken,
+      prompt: thumbnailPrompt,
+    });
+    const imageUrl = await uploadBufferToR2({
+      client: r2Client,
+      bucket: config.r2.bucket,
+      publicBaseUrl: config.r2.publicBaseUrl,
+      buffer,
+      key,
+    });
+    return insertImageIntoDivs(html, imgTag(imageUrl, altText));
+  } catch (err) {
+    console.warn(`Thumbnail generation/upload failed after retries (${err.message}). Publishing WITHOUT an image rather than losing a good article.`);
+    return html;
+  }
+}
+
+// Evening: no Gemini call at all -- pulls the oldest `ready` row (written by
+// generate.mjs's weekly batch) out of the queue, generates a fresh
+// thumbnail for it, marks it `done`, and publishes.
+async function runEvening(config, auth, pastLog) {
+  const readyRows = pastLog.filter((row) => row.status === "ready" && row.window === "evening");
+  if (readyRows.length === 0) {
+    console.log('No "ready" rows in the queue for the evening window — nothing to publish. Run the generate workflow (or "Run workflow" on generate.yml) to top up the queue.');
+    return;
+  }
+
+  // Oldest first (Sheet rows are already in append order, i.e. rowIndex order).
+  const row = readyRows.sort((a, b) => a.rowIndex - b.rowIndex)[0];
+  console.log(`Picked queued article (row ${row.rowIndex}): [${row.category}] "${row.titleId}" / "${row.titleEn}"`);
+
+  console.log("Generating thumbnail image via Cloudflare Workers AI...");
+  const finalHtml = await addThumbnail(config, row.contentHtml, row.thumbnailPrompt, row.altText, row.targetKeyword);
+
+  console.log(config.draftMode ? "Saving as DRAFT on Blogger (DRAFT_MODE=true)..." : "Publishing to Blogger...");
+  const published = await publishPost(auth, {
+    blogId: config.blogId,
+    title: row.titleEn,
+    contentHtml: finalHtml,
+    label: row.category,
+    isDraft: config.draftMode,
+  });
+
+  console.log(`${config.draftMode ? "Saved as draft" : "Published"}: ${published.url}`);
+
+  await updateRow(auth, config.sheetId, row.rowIndex, {
+    ...row,
+    date: new Date().toISOString(),
+    status: "done",
+    postUrl: published.url,
+  });
+}
+
+async function main() {
+  const config = loadConfig();
+  const auth = getOAuthClient(config.google);
+  const ai = createGeminiClient({ apiKey: config.gemini.apiKey });
+
+  await ensureHeaderRow(auth, config.sheetId);
+  const pastLog = await readLogRows(auth, config.sheetId);
+
+  const windowId = config.publishWindow.id;
+  if (process.env.FORCE_RUN === "true") {
+    console.log("FORCE_RUN=true — skipping the already-handled-this-window-today guard (manual test only, never set this in the scheduled workflow).");
+  } else if (windowId === "manual") {
+    console.log('PUBLISH_WINDOW_ID is "manual" (workflow_dispatch or local run) — dedup guard skipped, this is an intentional extra run.');
+  } else if (alreadyHandledThisWindowToday(pastLog, config.publishWindow.timezone, windowId)) {
+    console.log(`The "${windowId}" window already has a published/done row today — skipping (prevents double-posting if slots ever overlap).`);
+    return;
+  }
+
+  console.log(`Loaded ${pastLog.length} past log row(s).`);
+
+  const isMorning = windowId === "morning";
+  if (isMorning) {
+    await runMorning(config, auth, ai, pastLog);
+  } else {
+    await runEvening(config, auth, pastLog);
+  }
 
   console.log("Done.");
 }

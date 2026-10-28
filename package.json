@@ -6,6 +6,7 @@
   "scripts": {
     "setup": "node setup-ui/server.mjs",
     "run": "node src/run.mjs",
+    "generate": "node src/generate.mjs",
     "test:validate": "node src/validate.test.mjs"
   },
   "dependencies": {

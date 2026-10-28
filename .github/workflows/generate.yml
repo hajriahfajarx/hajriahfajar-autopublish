@@ -1,0 +1,57 @@
+name: Weekly batch generate
+
+# Writes several evening-window articles in ONE batch (once a week, off-peak,
+# outside both publish windows) and queues them as `ready` rows in the Sheet
+# -- instead of calling Gemini at every single publish moment. See
+# src/generate.mjs. The morning window is NOT covered by this (it stays
+# real-time, see run.mjs) since pre-writing "today's trending news" days in
+# advance would make it stale.
+#
+# Manual "dashboard": use this workflow's own "Run workflow" button (Actions
+# tab) to generate on demand, with a custom count -- no separate UI needed.
+on:
+  schedule:
+    # Every Monday, 10:00 UTC (17:00 WIB) -- between the morning and evening
+    # publish windows, so it never competes with them for the same Gemini
+    # API key's rate limit.
+    - cron: "0 10 * * MON"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "How many articles to generate"
+        required: false
+        default: "10"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run weekly batch generate
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
+          PUBLISH_TIMEZONE: ${{ secrets.PUBLISH_TIMEZONE }}
+          ACTIVE_CATEGORIES: ${{ secrets.ACTIVE_CATEGORIES }}
+          GENERATE_COUNT: ${{ github.event.inputs.count || '10' }}
+        run: npm run generate
