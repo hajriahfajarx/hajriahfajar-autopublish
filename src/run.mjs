@@ -22,10 +22,16 @@ function dateStringInTz(date, timeZone) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+// Only "published" blocks the rest of today's slots for this window -- a
+// "failed" row (e.g. a transient Gemini 503 storm) must NOT block retries,
+// otherwise a single bad slot wastes the whole window's redundancy and the
+// window ends up with no article at all that day. Seen in practice: Gemini
+// occasionally has several-minutes-long overload spells that exhaust every
+// retry/fallback model; the next slot an hour later is often fine.
 function alreadyHandledThisWindowToday(pastLog, timeZone, windowId) {
   const today = dateStringInTz(new Date(), timeZone);
   return pastLog.some((row) => {
-    if (!row.date || (row.status !== "published" && row.status !== "failed")) return false;
+    if (!row.date || row.status !== "published") return false;
     if (row.window !== windowId) return false;
     const rowDate = new Date(row.date);
     if (Number.isNaN(rowDate.valueOf())) return false;
@@ -73,7 +79,7 @@ async function main() {
   } else if (windowId === "manual") {
     console.log('PUBLISH_WINDOW_ID is "manual" (workflow_dispatch or local run) — dedup guard skipped, this is an intentional extra run.');
   } else if (alreadyHandledThisWindowToday(pastLog, config.publishWindow.timezone, windowId)) {
-    console.log(`The "${windowId}" window already has a published/failed row today — skipping (prevents double-posting if slots ever overlap).`);
+    console.log(`The "${windowId}" window already has a published row today — skipping (prevents double-posting if slots ever overlap).`);
     return;
   }
 
