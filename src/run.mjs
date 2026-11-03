@@ -143,6 +143,18 @@ async function main() {
       try {
         rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
         parsed = parseGeminiArticleResponse(rawResponse);
+        // thumbnailPrompt/altText are cosmetic (they only feed the thumbnail
+        // generator, never the article content) and a weaker fallback model
+        // sometimes leaves one blank. The repair loop below only re-asks for
+        // fixed HTML, not meta fields, so a blank one here is otherwise an
+        // unfixable dead end that wastes 3 repair attempts for nothing.
+        // Synthesize a reasonable generic value instead of failing outright.
+        if (!parsed.meta.thumbnailPrompt || !parsed.meta.thumbnailPrompt.trim()) {
+          parsed.meta.thumbnailPrompt = `A minimalist flat illustration related to "${topic.titleEn}", moody lighting, warm color palette.`;
+        }
+        if (!parsed.meta.altText || !parsed.meta.altText.trim()) {
+          parsed.meta.altText = topic.titleEn;
+        }
         writeFailureReason = null;
         break;
       } catch (err) {
