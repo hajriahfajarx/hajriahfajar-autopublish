@@ -21,12 +21,26 @@ export function parseGeminiArticleResponse(rawText) {
   const bagianAIndex = rawText.search(/#\s*BAGIAN A/i);
   const bagianBIndex = rawText.search(/#\s*BAGIAN B/i);
 
-  if (bagianAIndex === -1 || bagianBIndex === -1 || bagianBIndex <= bagianAIndex) {
-    throw new Error("Could not locate both BAGIAN A and BAGIAN B sections in Gemini's response.");
+  let sectionA;
+  let sectionB;
+  if (bagianAIndex !== -1 && bagianBIndex !== -1 && bagianBIndex > bagianAIndex) {
+    sectionA = rawText.slice(bagianAIndex, bagianBIndex);
+    sectionB = rawText.slice(bagianBIndex);
+  } else {
+    // A weaker/fallback model under load sometimes writes the meta fields
+    // and the HTML in the right order with the right content, but omits the
+    // literal "# BAGIAN A"/"# BAGIAN B" header lines entirely. The actual
+    // field/HTML extraction below never depends on those headers -- only on
+    // where section A ends and section B begins -- so fall back to splitting
+    // on the first fenced code block instead of giving up outright. Found in
+    // practice: real responses recovered this way parsed and validated fine.
+    const fenceIndex = rawText.search(/```/);
+    if (fenceIndex === -1) {
+      throw new Error("Could not locate BAGIAN A/BAGIAN B headers, or a fallback fenced HTML block, in Gemini's response.");
+    }
+    sectionA = rawText.slice(0, fenceIndex);
+    sectionB = rawText.slice(fenceIndex);
   }
-
-  const sectionA = rawText.slice(bagianAIndex, bagianBIndex);
-  const sectionB = rawText.slice(bagianBIndex);
 
   const meta = {
     category: extractField(sectionA, "Kategori"),
