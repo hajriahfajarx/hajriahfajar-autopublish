@@ -171,7 +171,7 @@ async function runMorning(config, auth, ai, pastLog) {
 
 async function addThumbnail(config, html, thumbnailPrompt, altText, slugSource) {
   const r2Client = createR2Client(config.r2);
-  const slug = slugSource
+  const slug = (slugSource || "article")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
@@ -234,36 +234,63 @@ async function runEvening(config, auth, pastLog) {
 }
 
 async function main() {
-  const config = loadConfig();
-  const auth = getOAuthClient(config.google);
-  const ai = createGeminiClient({ apiKey: config.gemini.apiKey });
+  let config;
+  let auth;
+  try {
+    config = loadConfig();
+    auth = getOAuthClient(config.google);
+    const ai = createGeminiClient({ apiKey: config.gemini.apiKey });
 
-  await ensureHeaderRow(auth, config.sheetId);
-  const pastLog = await readLogRows(auth, config.sheetId);
+    await ensureHeaderRow(auth, config.sheetId);
+    const pastLog = await readLogRows(auth, config.sheetId);
 
-  const windowId = config.publishWindow.id;
-  if (process.env.FORCE_RUN === "true") {
-    console.log("FORCE_RUN=true — skipping the already-handled-this-window-today guard (manual test only, never set this in the scheduled workflow).");
-  } else if (windowId === "manual") {
-    console.log('PUBLISH_WINDOW_ID is "manual" (workflow_dispatch or local run) — dedup guard skipped, this is an intentional extra run.');
-  } else if (alreadyHandledThisWindowToday(pastLog, config.publishWindow.timezone, windowId)) {
-    console.log(`The "${windowId}" window already has a published/done row today — skipping (prevents double-posting if slots ever overlap).`);
-    return;
+    const windowId = config.publishWindow.id;
+    if (process.env.FORCE_RUN === "true") {
+      console.log("FORCE_RUN=true — skipping the already-handled-this-window-today guard (manual test only, never set this in the scheduled workflow).");
+    } else if (windowId === "manual") {
+      console.log('PUBLISH_WINDOW_ID is "manual" (workflow_dispatch or local run) — dedup guard skipped, this is an intentional extra run.');
+    } else if (alreadyHandledThisWindowToday(pastLog, config.publishWindow.timezone, windowId)) {
+      console.log(`The "${windowId}" window already has a published/done row today — skipping (prevents double-posting if slots ever overlap).`);
+      return;
+    }
+
+    console.log(`Loaded ${pastLog.length} past log row(s).`);
+
+    const isMorning = windowId === "morning";
+    if (isMorning) {
+      await runMorning(config, auth, ai, pastLog);
+    } else {
+      await runEvening(config, auth, pastLog);
+    }
+
+    console.log("Done.");
+  } catch (err) {
+    console.error("Pipeline failed with an unexpected error:", err);
+    // Unlike the explicitly-caught parse/validation failures inside
+    // runMorning (which already log their own `failed` row), an unexpected
+    // crash here would otherwise leave today's window with NO Sheet record
+    // at all -- and since check-slot.mjs picks exactly one slot per
+    // window per day, there's no other slot left to retry today. Best-effort
+    // log it so a failure is at least visible without digging through
+    // Actions logs.
+    if (config && auth) {
+      try {
+        await appendLogRow(auth, config.sheetId, {
+          date: new Date().toISOString(),
+          status: "failed",
+          category: "",
+          titleId: "",
+          titleEn: "",
+          targetKeyword: "",
+          reason: `Unexpected error: ${err.message}`,
+          window: config.publishWindow?.id || "unknown",
+        });
+      } catch (logErr) {
+        console.error("Also failed to log this failure to the Sheet:", logErr);
+      }
+    }
+    process.exitCode = 1;
   }
-
-  console.log(`Loaded ${pastLog.length} past log row(s).`);
-
-  const isMorning = windowId === "morning";
-  if (isMorning) {
-    await runMorning(config, auth, ai, pastLog);
-  } else {
-    await runEvening(config, auth, pastLog);
-  }
-
-  console.log("Done.");
 }
 
-main().catch((err) => {
-  console.error("Pipeline failed with an unexpected error:", err);
-  process.exitCode = 1;
-});
+main();
