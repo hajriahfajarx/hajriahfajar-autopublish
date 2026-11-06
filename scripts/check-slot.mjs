@@ -7,11 +7,16 @@
 // How it works: there are 2 independent daily windows (morning/evening),
 // each with several fixed cron triggers spread across it (one every
 // SLOT_MINUTES). Each day, a deterministic hash of today's date + window
-// name picks exactly one slot per window as "today's real slot" for that
-// window. Every trigger checks the cron expression GitHub says fired it
-// (github.event.schedule) against a static map; only the one matching
-// today's chosen slot for its window proceeds. This spreads posts across the
-// day without ever sleeping in the runner.
+// name picks a slot as "today's randomized landing slot" for that window.
+// A trigger proceeds if its own slot index is >= that chosen slot (not just
+// ==) -- so on a normal day, the chosen slot publishes and every later
+// same-day trigger sees (via run.mjs's own Sheet-based dedup guard) that the
+// window is already handled and skips in a few seconds; but if the chosen
+// slot's attempt fails (e.g. a multi-minute Gemini overload spell that
+// exhausts every retry/fallback model), the NEXT trigger that day actually
+// gets a real retry instead of the window going silent until tomorrow. This
+// spreads posts across the day (and gives same-day failure retries) without
+// ever sleeping in the runner.
 //
 // Keep this file dependency-free (Node builtins only) so it can run before
 // `npm ci`.
@@ -93,8 +98,8 @@ if (eventName !== "schedule") {
     writeOutput("window", "unknown");
   } else {
     const chosenSlot = chosenSlotForWindow(dateStr, entry.window);
-    const proceed = entry.slot === chosenSlot;
-    console.log(`Date ${dateStr}, window "${entry.window}": chosen slot is ${chosenSlot}/${SLOTS_PER_WINDOW[entry.window] - 1}, this trigger is slot ${entry.slot} ("${scheduleCron}"). Proceed: ${proceed}`);
+    const proceed = entry.slot >= chosenSlot;
+    console.log(`Date ${dateStr}, window "${entry.window}": chosen slot is ${chosenSlot}/${SLOTS_PER_WINDOW[entry.window] - 1}, this trigger is slot ${entry.slot} ("${scheduleCron}"). Proceed: ${proceed} (proceeds if slot >= chosen; run.mjs's own dedup guard skips it quickly once the window is already handled today).`);
     writeOutput("proceed", String(proceed));
     writeOutput("window", entry.window);
   }
