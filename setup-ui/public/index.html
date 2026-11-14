@@ -52,12 +52,17 @@
   <button id="connectBtn">Connect Google Account</button>
   <div id="oauthStatus" class="status pending" style="display:none;"></div>
 
-  <h2>3. Cloudflare Workers AI (pembuat gambar thumbnail)</h2>
+  <h2>3. Tavily (opsional — pencarian web untuk cari ide topik &amp; bahan riset)</h2>
+  <p class="hint">Kosongkan kalau tidak mau dipakai — sistem tetap jalan normal tanpa ini. Ambil key gratis dari <a href="https://tavily.com" target="_blank">tavily.com</a> (gratis 1.000 pencarian/bulan).</p>
+  <label>Tavily API Key</label>
+  <input type="password" id="tavilyApiKey" placeholder="(opsional) tvly-..." />
+
+  <h2>4. Cloudflare Workers AI (pembuat gambar thumbnail)</h2>
   <p class="hint">Dashboard Cloudflare → ikon profil (kanan atas) → My Profile → API Tokens → Create Token → template "Workers AI (Read)".</p>
   <label>API Token</label>
   <input type="password" id="cloudflareApiToken" />
 
-  <h2>4. Cloudflare R2 (penyimpanan thumbnail)</h2>
+  <h2>5. Cloudflare R2 (penyimpanan thumbnail)</h2>
   <p class="hint">Gambar yang digenerate diupload ke sini supaya posting punya URL gambar yang stabil. Dari dashboard Cloudflare → R2 Object Storage.</p>
   <label>Account ID (akun Cloudflare yang sama dengan Workers AI di atas)</label>
   <input type="text" id="r2AccountId" placeholder="14bb2c488fd7f49814311d0c2e34e55f" />
@@ -71,17 +76,17 @@
   <input type="text" id="r2PublicBaseUrl" placeholder="https://img.yourdomain.com" />
   <div class="hint">Pakai custom domain kamu sendiri (lewat `wrangler r2 bucket domain add`), BUKAN URL `*.r2.dev` bawaan — domain `.r2.dev` dipakai bersama semua pengguna R2 gratis dan bisa terblokir oleh ISP tertentu (dialami langsung saat setup ini). Pastikan juga domain zone-nya TIDAK dalam "Under Attack Mode", karena itu memblokir image sub-resource juga.</div>
 
-  <h2>5. Kategori yang diikutkan di rotasi otomatis</h2>
+  <h2>6. Kategori yang diikutkan di rotasi otomatis</h2>
   <div class="cat"><input type="checkbox" id="cat-digital-insights" checked /><label style="margin:0" for="cat-digital-insights">Digital Insights</label></div>
   <div class="cat"><input type="checkbox" id="cat-faith-society" checked /><label style="margin:0" for="cat-faith-society">Faith &amp; Society</label></div>
   <div class="cat"><input type="checkbox" id="cat-productivity" checked /><label style="margin:0" for="cat-productivity">Productivity</label></div>
   <div class="cat"><input type="checkbox" id="cat-performance-mindset" checked /><label style="margin:0" for="cat-performance-mindset">Performance Mindset</label></div>
   <div class="cat"><input type="checkbox" disabled /><label style="margin:0; opacity:0.6">Fragment Hidup (selalu dikecualikan — butuh pengalaman pribadi asli)</label></div>
 
-  <h2>6. Jadwal terbit</h2>
+  <h2>7. Jadwal terbit</h2>
   <p class="hint">2x sehari, menargetkan terbit sekitar: pagi (07:00–09:30 WIB, berita teknologi terkini dari RSS) dan malam (19:00–20:30 WIB, rotasi kategori seperti biasa). Jadwal cron digeser lebih awal untuk kompensasi keterlambatan GitHub Actions. Untuk mengubah jendela/jumlah per hari, edit <code>.github/workflows/daily-post.yml</code> dan <code>scripts/check-slot.mjs</code> bersamaan (lihat README).</p>
 
-  <h2>7. Simpan</h2>
+  <h2>8. Simpan</h2>
   <div class="cat">
     <input type="checkbox" id="pushToGithub" />
     <label style="margin:0" for="pushToGithub">Juga push ke GitHub Actions secrets</label>

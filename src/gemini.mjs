@@ -65,14 +65,22 @@ async function generateContentWithFallback(clients, models, paramsWithoutModel, 
 
 /**
  * Asks Gemini (JSON mode) to propose one new, non-duplicate article topic
- * from the allowed categories, given the log of titles/keywords already used.
+ * from the allowed categories, given the log of titles/keywords already
+ * used. `trendingNotes` (optional, from Tavily -- see tavily.mjs/run.mjs)
+ * gives it real, current discussion material to pick from/around instead of
+ * inventing a topic in a vacuum; omit it to pick exactly as before.
  */
-export async function pickTopic(clients, models, { categories, pastLog, extraAvoid = [] }) {
+export async function pickTopic(clients, models, { categories, pastLog, extraAvoid = [], trendingNotes = [] }) {
   const categoryList = categories.map((c) => `- ${c.label} (slug: ${c.slug}): ${c.description}`).join("\n");
   const pastList = pastLog.length
     ? pastLog.map((r) => `- [${r.category}] "${r.titleId}" / "${r.titleEn}" (keyword: ${r.targetKeyword})`).join("\n")
     : "(belum ada artikel sebelumnya)";
   const avoidExtra = extraAvoid.length ? `\n\nTopik ini JUGA sudah dicoba dan harus dihindari lagi:\n${extraAvoid.join("\n")}` : "";
+  const trendingBlock = trendingNotes.length
+    ? `\n\nBerikut topik/isu yang sedang ramai dibahas saat ini (hasil pencarian web, boleh dipakai sebagai inspirasi atau diabaikan kalau tidak relevan/tidak cocok dengan kategori di atas):\n${trendingNotes
+        .map((n, i) => `${i + 1}. ${n.title} — ${n.content}`)
+        .join("\n")}`
+    : "";
 
   const prompt = `Kamu membantu memilih SATU topik artikel blog baru untuk hajriahfajar.com (blog teknologi, produktivitas, mindset, dan faith & society berbahasa Indonesia/Inggris).
 
@@ -80,12 +88,13 @@ Kategori yang BOLEH dipilih (pilih hanya satu):
 ${categoryList}
 
 Daftar artikel yang SUDAH PERNAH dibuat (jangan buat topik yang sama atau terlalu mirip):
-${pastList}${avoidExtra}
+${pastList}${avoidExtra}${trendingBlock}
 
 Pilih SATU topik baru yang:
 - belum pernah dibahas di daftar atas (hindari judul/keyword yang sama atau sangat mirip)
 - relevan untuk pembaca umum yang mencari informasi praktis di Google
 - punya potensi pencarian yang wajar (bukan terlalu niche/sempit, bukan terlalu generik)
+- kalau ada topik/isu yang sedang ramai di atas dan relevan dengan salah satu kategori, PRIORITASKAN itu dibanding mengarang topik generik baru
 
 Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) dengan skema persis seperti ini:
 {
@@ -192,10 +201,29 @@ Balas HANYA dalam format JSON valid (tanpa markdown, tanpa penjelasan tambahan) 
 }
 
 /**
- * Fills the style-guide template's INPUT PENGGUNA placeholders and asks
- * Gemini to write the full BAGIAN A + BAGIAN B article.
+ * Formats Tavily search results into a plain-text block for the prompt.
+ * Returns a placeholder line (not an empty string) when there's nothing --
+ * the style guide explicitly tells Gemini an empty/placeholder value here
+ * means "write from your own knowledge, as before".
  */
-export async function writeArticle(clients, models, styleGuideTemplate, topic, categoryLabel) {
+function formatResearchContext(researchResults) {
+  if (!researchResults || !researchResults.length) {
+    return "(tidak ada bahan riset tambahan untuk topik ini)";
+  }
+  return researchResults
+    .map((r, i) => `${i + 1}. ${r.title}\n   ${r.content}`)
+    .join("\n\n");
+}
+
+/**
+ * Fills the style-guide template's INPUT PENGGUNA placeholders and asks
+ * Gemini to write the full BAGIAN A + BAGIAN B article. `researchResults`
+ * (optional, from Tavily -- see tavily.mjs/run.mjs) grounds the article in
+ * real, current facts about the chosen topic instead of relying solely on
+ * the model's own (possibly stale) knowledge; omit it to write exactly as
+ * before.
+ */
+export async function writeArticle(clients, models, styleGuideTemplate, topic, categoryLabel, researchResults = null) {
   const filled = styleGuideTemplate
     .replaceAll("{{CATEGORY_LABEL}}", categoryLabel)
     .replaceAll("{{SEARCH_INTENT}}", topic.searchIntent)
@@ -203,7 +231,8 @@ export async function writeArticle(clients, models, styleGuideTemplate, topic, c
     .replaceAll("{{LSI_KEYWORDS}}", topic.lsiKeywords.join(", "))
     .replaceAll("{{TITLE_ID}}", topic.titleId)
     .replaceAll("{{TITLE_EN}}", topic.titleEn)
-    .replaceAll("{{BRIEF}}", topic.brief);
+    .replaceAll("{{BRIEF}}", topic.brief)
+    .replaceAll("{{RESEARCH_CONTEXT}}", formatResearchContext(researchResults));
 
   const response = await generateContentWithFallback(clients, models, {
     contents: filled,

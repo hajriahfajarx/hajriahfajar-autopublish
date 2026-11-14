@@ -49,6 +49,16 @@ export function loadConfig() {
     // account as R2 above, just a different kind of credential (an API
     // Token with Workers AI permission, not an S3-style access key).
     cloudflareApiToken: required("CLOUDFLARE_API_TOKEN"),
+    // Tavily (https://tavily.com) web search -- OPTIONAL. When set, used to
+    // (1) find real, current discussion material before picking a topic
+    // (so topics aren't picked in a vacuum) and (2) find factual reference
+    // material for the chosen topic before writing (so the article can cite
+    // accurate, current facts instead of relying solely on the model's own
+    // knowledge). Left unset, the pipeline works exactly as before -- see
+    // tavily.mjs and its call sites in run.mjs, which must all treat a
+    // missing key (or a failed Tavily call) as "skip this enhancement", not
+    // a hard failure.
+    tavilyApiKey: process.env.TAVILY_API_KEY || null,
     publishWindow: {
       // Which of the 3 daily windows (morning/midday/evening) this run
       // belongs to — set by the GitHub Actions workflow from check-slot's

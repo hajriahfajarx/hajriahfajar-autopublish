@@ -559,6 +559,11 @@ Judul (Bahasa Indonesia, draft — boleh kamu sempurnakan): {{TITLE_ID}}
 Judul (Bahasa Inggris, draft — boleh kamu sempurnakan): {{TITLE_EN}}
 Sudut pandang / brief artikel: {{BRIEF}}
 
+Bahan riset/fakta terkini (hasil pencarian web, bisa kosong):
+{{RESEARCH_CONTEXT}}
+
+Kalau bahan riset di atas TERSEDIA (tidak kosong): gunakan untuk memastikan detail, angka, nama, dan klaim faktual dalam artikel akurat dan terkini — JANGAN mengada-ada atau menebak kalau bahan riset sudah memberi jawabannya. Tulis ulang dengan gaya alami (bukan menyalin mentah), dan JANGAN mencantumkan URL/link sumber di dalam artikel. Kalau bahan riset KOSONG atau tidak relevan dengan topik: tulis seperti biasa berdasarkan pengetahuanmu sendiri, seperti sebelumnya.
+
 ==================================================
 OUTPUT WAJIB (URUTAN INI)
 

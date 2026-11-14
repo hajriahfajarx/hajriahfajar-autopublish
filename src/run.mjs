@@ -8,6 +8,7 @@ import { getOAuthClient } from "./googleAuth.mjs";
 import { readLogRows, appendLogRow, ensureHeaderRow } from "./sheets.mjs";
 import { createGeminiClients, pickTopic, pickTrendingTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
 import { fetchLatestTechNews, filterUncoveredNewsItems } from "./techNews.mjs";
+import { findTrending, findResearch } from "./tavily.mjs";
 import { parseGeminiArticleResponse } from "./parse.mjs";
 import { validateArticle } from "./validate.mjs";
 import { isLikelyDuplicate } from "./dedup.mjs";
@@ -112,17 +113,54 @@ async function main() {
 
     const isMorning = windowId === "morning";
     let newsCandidates = [];
+    let trendingNotes = [];
     if (isMorning) {
       console.log("Morning window — fetching current tech news from RSS feeds (forced category: Digital Insights)...");
       const newsItems = await fetchLatestTechNews();
-      newsCandidates = filterUncoveredNewsItems(newsItems, pastLog);
-      console.log(`Fetched ${newsItems.length} news item(s), ${newsCandidates.length} not yet covered.`);
+      let combinedItems = newsItems;
+
+      // Tavily is an OPTIONAL enhancement -- RSS alone (as before) is the
+      // floor, never the ceiling. Any Tavily failure here must not take
+      // down the whole run.
+      if (config.tavilyApiKey) {
+        try {
+          const trending = await findTrending(config.tavilyApiKey, "AI and technology news today", { days: 2, maxResults: 6 });
+          const tavilyItems = trending.results.map((r) => ({
+            title: r.title,
+            link: r.url,
+            description: (r.content || "").slice(0, 400),
+            pubDate: r.publishedDate || "",
+            source: "tavily",
+            publishedAt: r.publishedDate ? new Date(r.publishedDate) : null,
+          }));
+          console.log(`Tavily found ${tavilyItems.length} additional trending tech item(s).`);
+          combinedItems = [...newsItems, ...tavilyItems];
+        } catch (err) {
+          console.warn(`Tavily trending search failed (non-fatal, continuing with RSS only): ${err.message}`);
+        }
+      }
+
+      newsCandidates = filterUncoveredNewsItems(combinedItems, pastLog);
+      console.log(`Fetched ${combinedItems.length} news item(s) total, ${newsCandidates.length} not yet covered.`);
+    } else if (config.tavilyApiKey) {
+      // Evening has no RSS-equivalent source at all today -- topics are
+      // otherwise picked purely from Gemini's own invention. Give it real,
+      // current material to pick from/around instead, same "optional,
+      // never fatal" treatment as above.
+      try {
+        const categoryQuery = categories.map((c) => c.label).join(", ");
+        const trending = await findTrending(config.tavilyApiKey, `tren terbaru seputar ${categoryQuery}`, { days: 5, maxResults: 6 });
+        trendingNotes = trending.results.map((r) => ({ title: r.title, content: (r.content || "").slice(0, 400) }));
+        console.log(`Tavily found ${trendingNotes.length} trending note(s) for topic picking.`);
+      } catch (err) {
+        console.warn(`Tavily trending search failed (non-fatal, picking a topic without it): ${err.message}`);
+      }
     }
 
     const pick = (extraAvoid = []) =>
       isMorning
         ? pickTrendingTopic(aiClients, config.gemini.models, { newsCandidates, pastLog, extraAvoid })
-        : pickTopic(aiClients, config.gemini.models, { categories, pastLog, extraAvoid });
+        : pickTopic(aiClients, config.gemini.models, { categories, pastLog, extraAvoid, trendingNotes });
 
     let topic = await pick();
     if (isLikelyDuplicate(topic, pastLog)) {
@@ -135,13 +173,27 @@ async function main() {
     const category = isMorning ? ALL_CATEGORIES["digital-insights"] : categories.find((c) => c.slug === topic.category);
     console.log(`Topic chosen: [${category.label}] "${topic.titleId}" / "${topic.titleEn}"`);
 
+    // Optional: real, current reference material for the CHOSEN topic, so
+    // the article can cite accurate facts instead of relying solely on the
+    // model's own (possibly stale) knowledge. Same "never fatal" treatment.
+    let researchResults = null;
+    if (config.tavilyApiKey) {
+      try {
+        const research = await findResearch(config.tavilyApiKey, topic.targetKeyword);
+        researchResults = research.results;
+        console.log(`Tavily found ${researchResults.length} research reference(s) for "${topic.targetKeyword}".`);
+      } catch (err) {
+        console.warn(`Tavily research search failed (non-fatal, writing from Gemini's own knowledge): ${err.message}`);
+      }
+    }
+
     console.log("Writing full article...");
     let parsed = null;
     let writeFailureReason = null;
     for (let writeAttempt = 1; writeAttempt <= MAX_WRITE_ATTEMPTS; writeAttempt++) {
       let rawResponse;
       try {
-        rawResponse = await writeArticle(aiClients, config.gemini.models, styleGuideTemplate, topic, category.label);
+        rawResponse = await writeArticle(aiClients, config.gemini.models, styleGuideTemplate, topic, category.label, researchResults);
         parsed = parseGeminiArticleResponse(rawResponse);
         // thumbnailPrompt/altText are cosmetic (they only feed the thumbnail
         // generator, never the article content) and a weaker fallback model

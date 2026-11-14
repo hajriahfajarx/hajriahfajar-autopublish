@@ -23,12 +23,15 @@ Both windows write live, at publish time, straight to Gemini — there's no pre-
 4. If prompted, configure the OAuth consent screen (External, testing mode is fine since only you will authorize it).
 
 ### 2. Gemini API key
-Get one from https://aistudio.google.com/apikey — no OAuth needed, just paste it into the setup form.
+Get one from https://aistudio.google.com/apikey — no OAuth needed, just paste it into the setup form. `GEMINI_API_KEY` also accepts a comma-separated list of keys for automatic failover (optional, one key works fine — see Notes below).
 
-### 3. Cloudflare Workers AI (thumbnail generation)
+### 3. Tavily API key (optional, web search for topic-picking + fact grounding)
+Get one from https://tavily.com (free tier: 1,000 searches/month). Leave blank to skip entirely — the pipeline works exactly as before without it. See `.env.example` for what it's used for.
+
+### 4. Cloudflare Workers AI (thumbnail generation)
 Dashboard → click your profile icon (top right) → **My Profile** → **API Tokens** → **Create Token** → template **"Workers AI (Read)"** (or custom: Account → Workers AI → Read) → Create. Save the token (shown once) — this is `CLOUDFLARE_API_TOKEN`.
 
-### 4. Cloudflare R2 (thumbnail storage)
+### 5. Cloudflare R2 (thumbnail storage)
 1. Enable R2 once for your account at the Cloudflare dashboard (R2 Object Storage → Enable R2) — the free tier (10GB) is plenty for small JPEG thumbnails.
 2. `npx wrangler r2 bucket create <bucket-name>`
 3. Connect a **custom domain you own** (do NOT use the shared `*.r2.dev` URL — it's shared across every free R2 user worldwide and can get blocked wholesale by some ISPs; hit this for real in testing):
@@ -37,18 +40,18 @@ Dashboard → click your profile icon (top right) → **My Profile** → **API T
    ```
    (Zone ID is on your domain's Cloudflare dashboard Overview page.) Wait a minute or two for `ownership_status`/`ssl_status` to go `active` (`npx wrangler r2 bucket domain get <bucket-name> --domain img.yourdomain.com`).
 4. **Make sure that domain's zone is NOT in "Under Attack Mode"** (Cloudflare dashboard → your domain → Overview) — it blocks image sub-resource requests (not just full-page loads), which silently breaks every thumbnail. This mode is meant only for active DDoS mitigation, not normal operation.
-5. Dashboard → R2 Object Storage → **Manage R2 API Tokens** → Create **Account API token** (not User token) → Permission: **Object Read & Write**, scoped to this bucket only. Save the Access Key ID + Secret Access Key (shown once). The **Account ID** here is the same one used for Workers AI in step 3.
+5. Dashboard → R2 Object Storage → **Manage R2 API Tokens** → Create **Account API token** (not User token) → Permission: **Object Read & Write**, scoped to this bucket only. Save the Access Key ID + Secret Access Key (shown once). The **Account ID** here is the same one used for Workers AI in step 4.
 
-### 5. Run the local settings UI
+### 6. Run the local settings UI
 ```bash
 npm install
 npm run setup
 ```
 This opens `http://localhost:5577` in your browser. Fill in the Gemini key, OAuth Client ID/Secret, your blog URL, and click **Connect Google Account** — a Google consent screen opens in a new tab; log in with the account that owns hajriahfajar.com. Once connected, the page auto-detects your Blogger blog ID and creates (or reuses) the Google Sheet log.
 
-Fill in the Cloudflare API Token from step 3 and the R2 fields from step 4, pick which categories should be included (Fragment Hidup is always excluded), set your publish time window, then click **Save**. This writes a local `.env` file. If you've already pushed this repo to GitHub and have the `gh` CLI authenticated, you can also check "push to GitHub Actions secrets" to skip manually pasting values into GitHub's UI.
+Fill in the Tavily key from step 3 (optional, leave blank to skip), the Cloudflare API Token from step 4, and the R2 fields from step 5, pick which categories should be included (Fragment Hidup is always excluded), set your publish time window, then click **Save**. This writes a local `.env` file. If you've already pushed this repo to GitHub and have the `gh` CLI authenticated, you can also check "push to GitHub Actions secrets" to skip manually pasting values into GitHub's UI.
 
-### 6. Push to GitHub
+### 7. Push to GitHub
 ```bash
 git init
 git add .
@@ -58,7 +61,7 @@ git push -u origin main
 ```
 **Public, not private** — GitHub Actions minutes are unlimited/free on public repos, but metered (shared across your whole account) on private ones; this pipeline's own secrets stay safe either way since they're GitHub-encrypted secrets, never committed to the repo itself.
 
-Then re-run `npm run setup` (or just check the box if you ran it after this step) to push secrets automatically — or add them manually under the repo's **Settings → Secrets and variables → Actions**: `GEMINI_API_KEY`, `GEMINI_MODEL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `BLOG_ID`, `SHEET_ID`, `CLOUDFLARE_API_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`, `PUBLISH_TIMEZONE`, `ACTIVE_CATEGORIES`. (`PUBLISH_WINDOW_ID` is not a secret — it's injected per-run by the workflow itself from `check-slot.mjs`'s output.)
+Then re-run `npm run setup` (or just check the box if you ran it after this step) to push secrets automatically — or add them manually under the repo's **Settings → Secrets and variables → Actions**: `GEMINI_API_KEY`, `GEMINI_MODEL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `BLOG_ID`, `SHEET_ID`, `TAVILY_API_KEY` (optional), `CLOUDFLARE_API_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL`, `PUBLISH_TIMEZONE`, `ACTIVE_CATEGORIES`. (`PUBLISH_WINDOW_ID` is not a secret — it's injected per-run by the workflow itself from `check-slot.mjs`'s output.)
 
 GitHub Actions then runs the pipeline daily (`.github/workflows/daily-post.yml`) — no further manual steps needed. You can trigger a one-off publish test run anytime from "Daily auto-publish" → **Run workflow** (manual runs always proceed immediately, bypassing the slot check).
 
@@ -73,12 +76,13 @@ Add `FORCE_RUN=true` to bypass the same-day dedup guard for manual re-testing (e
 ## Notes / known tradeoffs
 - `GEMINI_MODEL` defaults to `gemini-flash-latest,gemini-flash-lite-latest` (comma-separated, tried in order with its own retry-with-backoff before falling through) — `gemini-flash-latest` is an alias that tracks Google's current best free-tier Flash model, chosen because Google retires specific model versions periodically (e.g. the Gemini 2.5 line is being shut down Oct 16, 2026); the Flash-Lite fallback covers the primary model being temporarily overloaded. During a real Gemini outage (widespread 503s), even a "successful" response can occasionally skip the expected BAGIAN A/BAGIAN B format — `writeArticle`+parse gets up to 2 full attempts for this before giving up and logging a clean `failed` row.
 - `GEMINI_API_KEY` also accepts a comma-separated list — every model is tried on the first key before falling through to the second. Optional (one key works fine); only helps against a per-key 429 quota limit, not a shared-capacity 503 overload (same for every key).
+- `TAVILY_API_KEY` (optional, see `src/tavily.mjs`): when set, every run does up to 2 web searches — one BEFORE picking a topic (real current discussion material for the model to pick from/around, instead of inventing one — morning merges this into its RSS candidates, evening gets this as its only non-invented source since it has no RSS equivalent) and one AFTER a topic is chosen (factual reference material for `{{RESEARCH_CONTEXT}}` in the style guide, so the article cites accurate current facts instead of relying solely on the model's own knowledge). Both are best-effort: a Tavily failure is logged and the run continues exactly as if `TAVILY_API_KEY` were unset.
 - The 2 daily windows (morning 10 slots + evening 6 slots = 16 cron entries total; configured times are shifted earlier than the real target WIB times to compensate for observed GitHub scheduling delay — see the "scheduling delay" note below) are controlled by **two places that must stay in sync**: the `schedule:` entries in `.github/workflows/daily-post.yml` and the `CRON_MAP` in `scripts/check-slot.mjs`. Changing the windows/times/count-per-day means editing both.
 - **GitHub scheduling delay (observed, not just theoretical)**: this account's scheduled workflow triggers were observed landing ~3-4.5h later than their configured cron time across all 3 sibling projects, likely queuing congestion since most repos worldwide schedule on the same popular `:00/:15/:30/:45` minute marks. The configured cron times here are deliberately shifted earlier (and use uncommon minute offsets like `:07/:22/:37/:52`) to compensate, targeting a real-world landing close to the intended WIB windows. This is a best-effort estimate from a limited sample — monitor actual publish timestamps (Blogger post dates / Sheet log) periodically and re-tune the cron times if the delay pattern drifts.
 - Dedup is per-window, not per-day: only a `published` row — tagged with which window produced it — blocks that same window from running again today. A `failed` row does **not** block — if a slot's live write fails (e.g. a transient Gemini 503 overload spell), the next slot in the same window retries from scratch later that day, instead of the whole window going silent until tomorrow. Rows from before per-window tracking existed default to `evening` for backward compatibility.
 - If `run.mjs` crashes with an error that isn't one of the explicitly-handled parse/validation failures, the top-level catch in `main()` still logs a `failed` row with the raw error message before exiting — otherwise, since `check-slot.mjs` only allows one slot per window per day, an unexpected crash would silently cost that window's post for the day with no trace in the Sheet.
 - Morning's RSS feed list lives in `FEEDS` in `src/techNews.mjs` — add/remove feeds there if you want different sources. Each feed is fetched independently and failures are logged but don't block the others.
 - Keep the repo **public** (see step 6) — GitHub's scheduled-workflow delivery can also be delayed by hours on its own, independent of billing, so don't be alarmed if a run fires later than its cron time; the slot logic still lands on the chosen slot (or the next available one) regardless of when each trigger actually fires.
-- Thumbnails are generated via Cloudflare Workers AI (FLUX.1 [schnell]) and uploaded directly to your own Cloudflare R2 bucket (see setup steps 3–4). Previously used Pollinations.ai (free, no API key) but switched away after it started intermittently returning `402`/`503` for anonymous requests — Workers AI uses the same Cloudflare account already set up for R2, with a far more generous and reliable free tier (~230 images/day). If generation/upload fails after retries, the post still publishes, just without an image.
+- Thumbnails are generated via Cloudflare Workers AI (FLUX.1 [schnell]) and uploaded directly to your own Cloudflare R2 bucket (see setup steps 4–5). Previously used Pollinations.ai (free, no API key) but switched away after it started intermittently returning `402`/`503` for anonymous requests — Workers AI uses the same Cloudflare account already set up for R2, with a far more generous and reliable free tier (~230 images/day). If generation/upload fails after retries, the post still publishes, just without an image.
 - The validation step catches leftover placeholders and structural problems, not subtle factual errors — it's pattern-based QA, not full editorial review.
 - Re-run `npm run setup` any time to change categories or rotate API keys.
