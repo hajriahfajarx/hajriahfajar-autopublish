@@ -104,6 +104,23 @@ assert(
   "should specifically flag altText as containing leaked instruction text"
 );
 
+// --- Case 4: toggle buttons present, but the <script> that defines
+// window.__setLang is entirely missing. Regression test for a real bug:
+// checking only for the substring "window.__setLang" always "passed"
+// because the buttons' own onclick attributes already contain that text
+// ("window.__setLang && window.__setLang('id', true)") -- so this could
+// never actually catch a missing script block. Found after several real
+// published posts turned out to have both language divs intact (still
+// display:none) but zero <script> tags, leaving them permanently blank.
+const noScriptResponse = cleanResponse.replace(/<script>.*?<\/script>/, "");
+const noScript = parseGeminiArticleResponse(noScriptResponse);
+const noScriptResult = validateArticle(noScript);
+assert(noScriptResult.ok === false, "missing toggle script should fail validation even though the buttons still mention window.__setLang");
+assert(
+  noScriptResult.issues.some((i) => i.includes("Script toggle")),
+  "should specifically flag the missing toggle script"
+);
+
 if (process.exitCode === 1) {
   console.error("\nSome validate.mjs tests FAILED.");
 } else {

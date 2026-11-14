@@ -66,8 +66,19 @@ export function validateArticle({ meta, html }) {
     }
   }
 
-  if (!/window\.__setLang/i.test(html)) {
-    issues.push("Script toggle bahasa (window.__setLang) tidak ditemukan di HTML.");
+  // NOTE: checking only for the substring "window.__setLang" is NOT enough
+  // -- the toggle buttons' own onclick attributes ("window.__setLang &&
+  // window.__setLang('id', true)") always contain that exact text, so that
+  // check always "passes" even when the entire <script> block that DEFINES
+  // the function is missing. Seen in practice: real published posts with
+  // both language divs present (and still display:none, since nothing ever
+  // sets them visible) but zero <script> tags anywhere -- this check let
+  // every one of them through. Require an actual script block containing
+  // the function's DEFINITION, not just a reference/call to it.
+  const hasScriptBlock = /<script[\s\S]*?<\/script>/i.test(html);
+  const hasSetLangDefinition = /window\.__setLang\s*=\s*function/.test(html);
+  if (!hasScriptBlock || !hasSetLangDefinition) {
+    issues.push("Script toggle bahasa (definisi window.__setLang di dalam <script>) tidak ditemukan atau tidak lengkap di HTML -- kedua versi bahasa akan tetap tersembunyi (display:none) selamanya tanpa ini.");
   }
 
   const buttonCount = (html.match(/<button[^>]*>/gi) || []).length;
