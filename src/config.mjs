@@ -11,7 +11,17 @@ function required(name) {
 export function loadConfig() {
   return {
     gemini: {
-      apiKey: required("GEMINI_API_KEY"),
+      // Comma-separated list of API keys, tried in order -- every model
+      // below is tried on the first key before falling through to the
+      // second one (see generateContentWithFallback in gemini.mjs). A
+      // second key is OPTIONAL: works fine with just one. Note a second key
+      // only helps against a per-key quota/rate limit (429), not a genuine
+      // "model currently overloaded" (503) -- that's Google-side shared
+      // capacity, unaffected by which key calls it.
+      apiKeys: required("GEMINI_API_KEY")
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean),
       // Tried in order; falls through to the next only once the previous
       // model has exhausted its own retries (see generateContentWithFallback
       // in gemini.mjs). Protects against one model being temporarily

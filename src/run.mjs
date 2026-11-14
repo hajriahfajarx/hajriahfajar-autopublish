@@ -6,7 +6,7 @@ import { loadConfig } from "./config.mjs";
 import { getActiveCategories, ALL_CATEGORIES } from "./categories.mjs";
 import { getOAuthClient } from "./googleAuth.mjs";
 import { readLogRows, appendLogRow, ensureHeaderRow } from "./sheets.mjs";
-import { createGeminiClient, pickTopic, pickTrendingTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
+import { createGeminiClients, pickTopic, pickTrendingTopic, writeArticle, fixArticleHtml } from "./gemini.mjs";
 import { fetchLatestTechNews, filterUncoveredNewsItems } from "./techNews.mjs";
 import { parseGeminiArticleResponse } from "./parse.mjs";
 import { validateArticle } from "./validate.mjs";
@@ -93,7 +93,7 @@ async function main() {
     const styleGuideTemplate = readFileSync(path.join(__dirname, "..", "prompts", "style-guide.md"), "utf-8");
 
     auth = getOAuthClient(config.google);
-    const ai = createGeminiClient({ apiKey: config.gemini.apiKey });
+    const aiClients = createGeminiClients(config.gemini.apiKeys);
 
     await ensureHeaderRow(auth, config.sheetId);
     const pastLog = await readLogRows(auth, config.sheetId);
@@ -121,8 +121,8 @@ async function main() {
 
     const pick = (extraAvoid = []) =>
       isMorning
-        ? pickTrendingTopic(ai, config.gemini.models, { newsCandidates, pastLog, extraAvoid })
-        : pickTopic(ai, config.gemini.models, { categories, pastLog, extraAvoid });
+        ? pickTrendingTopic(aiClients, config.gemini.models, { newsCandidates, pastLog, extraAvoid })
+        : pickTopic(aiClients, config.gemini.models, { categories, pastLog, extraAvoid });
 
     let topic = await pick();
     if (isLikelyDuplicate(topic, pastLog)) {
@@ -141,7 +141,7 @@ async function main() {
     for (let writeAttempt = 1; writeAttempt <= MAX_WRITE_ATTEMPTS; writeAttempt++) {
       let rawResponse;
       try {
-        rawResponse = await writeArticle(ai, config.gemini.models, styleGuideTemplate, topic, category.label);
+        rawResponse = await writeArticle(aiClients, config.gemini.models, styleGuideTemplate, topic, category.label);
         parsed = parseGeminiArticleResponse(rawResponse);
         // thumbnailPrompt/altText are cosmetic (they only feed the thumbnail
         // generator, never the article content) and a weaker fallback model
@@ -194,7 +194,7 @@ async function main() {
       console.log(`Validation found ${result.issues.length} issue(s), attempt ${attempt}/${MAX_FIX_ATTEMPTS} to fix:`);
       result.issues.forEach((i) => console.log(`  - ${i}`));
 
-      const fixedHtmlResponse = await fixArticleHtml(ai, config.gemini.models, parsed.html, result.issues);
+      const fixedHtmlResponse = await fixArticleHtml(aiClients, config.gemini.models, parsed.html, result.issues);
       const fixedHtmlMatch = fixedHtmlResponse.match(/```(?:html)?\s*\n([\s\S]*?)\n```/i);
       if (fixedHtmlMatch) {
         parsed = { ...parsed, html: fixedHtmlMatch[1].trim() };
