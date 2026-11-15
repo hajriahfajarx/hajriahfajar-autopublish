@@ -571,6 +571,7 @@ OUTPUT WAJIB (URUTAN INI)
 
 Catatan cara mengisi (ikuti ini, tapi JANGAN ikut menuliskan catatan ini di jawabanmu — baris di bawah "Format baris:" adalah format label:isi yang sebenarnya harus kamu keluarkan, isi SETELAH tanda titik dua saja, tanpa mengulang instruksi dalam kurung):
 - Judul Artikel dan Prompt Thumbnail: WAJIB Bahasa Inggris.
+- Judul Artikel (Bahasa Indonesia): WAJIB SAMA PERSIS (kata per kata) dengan heading Bahasa Indonesia yang kamu tulis di BAGIAN B (lihat "Heading otomatis" di bawah) — field ini dipakai sistem untuk menampilkan judul versi Indonesia di tempat lain (daftar artikel, tab browser, dsb) saat pembaca beralih bahasa, jadi harus identik, bukan parafrase baru.
 - Meta Description: Bahasa Inggris, 140-155 karakter, mengandung keyword utama.
 - Alt Text Gambar Utama: Bahasa Inggris, mengandung keyword utama secara natural.
 - Saran Internal Link: sebutkan 2-3 kategori/topik terkait di blog.
@@ -581,6 +582,7 @@ Search Intent:
 Target Keyword Utama:
 Keyword Turunan (LSI):
 Judul Artikel:
+Judul Artikel (Bahasa Indonesia):
 Meta Description:
 Alt Text Gambar Utama:
 Prompt Thumbnail:
@@ -598,107 +600,28 @@ WAJIB:
 VERSI BAHASA (WAJIB ADA KEDUANYA):
 
 INDONESIAN VERSION
-- Judul Bahasa Indonesia
+- Judul Bahasa Indonesia — WAJIB SAMA PERSIS dengan "Judul Artikel (Bahasa Indonesia)" di BAGIAN A
 - Heading otomatis: <h2 style="text-align:center;">{JUDUL}</h2>
 
 ENGLISH VERSION
-- Judul dalam Bahasa Inggris (adaptif, bukan terjemahan literal, terasa seperti ditulis ulang bukan diterjemahkan)
-- Heading otomatis: <h2 style="text-align:center;">{JUDUL} (English Version)</h2>
+- Judul dalam Bahasa Inggris (adaptif, bukan terjemahan literal, terasa seperti ditulis ulang bukan diterjemahkan) — WAJIB SAMA PERSIS dengan "Judul Artikel" di BAGIAN A
+- Heading otomatis: <h2 style="text-align:center;">{JUDUL}</h2>
 
 ==================================================
 
 STRUKTUR HTML (WAJIB):
 
-Letakkan tombol toggle bahasa di atas artikel:
+JANGAN membuat tombol toggle bahasa, JANGAN membuat <script> apapun, dan JANGAN membuat div dengan id="indonesian-version"/"english-version". Situs sudah punya switch bahasa sendiri di menu navigasi (global, bukan per-artikel) yang otomatis mengatur bahasa mana yang tampil berdasarkan class berikut. Tugasmu hanya menulis dua blok ini, PERSIS seperti ini (ganti isinya saja):
 
-<!-- TOGGLE BUTTONS -->
-<div style="text-align:center; margin:20px 0;">
-  <button type="button"
-    onclick="window.__setLang && window.__setLang('id', true);"
-    style="padding:10px 18px; margin:5px; border:none; background:#5A2B0C; color:white; border-radius:6px; font-weight:bold;">
-    🇮🇩 Bahasa Indonesia
-  </button>
-
-  <button type="button"
-    onclick="window.__setLang && window.__setLang('en', true);"
-    style="padding:10px 18px; margin:5px; border:none; background:#F58220; color:white; border-radius:6px; font-weight:bold;">
-    🌐 English
-  </button>
+<div class="lang-id" style="text-align:justify;">
+  <h2 style="text-align:center;">{JUDUL}</h2>
+  <!-- isi artikel Bahasa Indonesia di sini -->
 </div>
 
-<!-- CONTENT WRAPPERS (default: hidden, will be decided by JS) -->
-<div id="indonesian-version" style="display:none; text-align:justify;">
-  <!-- Indonesian content here -->
+<div class="lang-en" style="text-align:justify;">
+  <h2 style="text-align:center;">{JUDUL}</h2>
+  <!-- isi artikel Bahasa Inggris di sini -->
 </div>
-
-<div id="english-version" style="display:none; text-align:justify;">
-  <!-- English content here -->
-</div>
-
-<script>
-(function () {
-  function $(id){ return document.getElementById(id); }
-
-  var ID_WRAP = "indonesian-version";
-  var EN_WRAP = "english-version";
-  var STORAGE_KEY = "preferred_lang_bilingual_bab";
-
-  function show(lang) {
-    var idEl = $(ID_WRAP);
-    var enEl = $(EN_WRAP);
-    if (!idEl || !enEl) return;
-
-    if (lang === "id") {
-      idEl.style.display = "block";
-      enEl.style.display = "none";
-      document.documentElement.setAttribute("lang", "id");
-    } else {
-      enEl.style.display = "block";
-      idEl.style.display = "none";
-      document.documentElement.setAttribute("lang", "en");
-    }
-  }
-
-  window.__setLang = function(lang, remember) {
-    show(lang);
-    if (remember) {
-      try { localStorage.setItem(STORAGE_KEY, lang); } catch(e) {}
-    }
-  };
-
-  function detectLang() {
-    try {
-      var saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "id" || saved === "en") return saved;
-    } catch(e) {}
-
-    var tz = "";
-    try {
-      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    } catch(e) {}
-
-    if (tz === "Asia/Jakarta" || tz === "Asia/Makassar" || tz === "Asia/Jayapura") {
-      return "id";
-    }
-
-    var langs = [];
-    try {
-      langs = navigator.languages && navigator.languages.length
-        ? navigator.languages
-        : [navigator.language || ""];
-    } catch(e) {}
-
-    for (var i = 0; i < langs.length; i++) {
-      var l = (langs[i] || "").toLowerCase();
-      if (l === "id" || l.indexOf("id-") === 0) return "id";
-    }
-
-    return "en";
-  }
-
-  show(detectLang());
-})();
-</script>
 
 ==================================================
 Masukkan SEMUA output BAGIAN B ke dalam FENCED CODE BLOCK.

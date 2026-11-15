@@ -31,3 +31,24 @@ export async function uploadBufferToR2({ client, bucket, publicBaseUrl, buffer, 
 
   return `${publicBaseUrl.replace(/\/$/, "")}/${key}`;
 }
+
+/**
+ * Uploads a plain JSON-serializable value to R2 -- used for the titles
+ * manifest (see titlesManifest.mjs). Short cache lifetime since this file
+ * gets rewritten a few times a day and the theme's client-side fetch should
+ * pick up new entries reasonably soon, without re-fetching on every single
+ * pageview.
+ */
+export async function uploadJsonToR2({ client, bucket, publicBaseUrl, key, data }) {
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(data),
+      ContentType: "application/json",
+      CacheControl: "public, max-age=300",
+    })
+  );
+
+  return `${publicBaseUrl.replace(/\/$/, "")}/${key}`;
+}

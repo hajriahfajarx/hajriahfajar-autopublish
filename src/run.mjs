@@ -16,6 +16,7 @@ import { imgTag } from "./image.mjs";
 import { createR2Client, uploadBufferToR2 } from "./r2upload.mjs";
 import { generateImageWithRetry } from "./cfImage.mjs";
 import { publishPost } from "./blogger.mjs";
+import { updateTitlesManifest } from "./titlesManifest.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MAX_FIX_ATTEMPTS = 3;
@@ -44,7 +45,7 @@ function alreadyHandledThisWindowToday(pastLog, timeZone, windowId) {
 
 function insertImageIntoDivs(html, imageHtml) {
   return html.replace(
-    /(<div[^>]*id=["'](?:indonesian-version|english-version)["'][^>]*>)/gi,
+    /(<div[^>]*class=["'][^"']*\b(?:lang-id|lang-en)\b[^"']*["'][^>]*>)/gi,
     (match) => `${match}\n${imageHtml}`
   );
 }
@@ -297,6 +298,26 @@ async function main() {
       postUrl: published.url,
       window: windowId,
     });
+
+    // Best-effort (see titlesManifest.mjs) -- lets the theme's nav language
+    // toggle swap this post's title everywhere it's shown, not just in the
+    // body. Uses the FINAL titles Gemini actually wrote (parsed.meta), not
+    // the draft topic.titleId/titleEn, since Gemini may have refined them.
+    // Skipped entirely for drafts: Blogger doesn't assign a real permalink
+    // to a draft (published.url comes back as just the blog's homepage),
+    // so there's no correct path to key the manifest on -- found in
+    // practice, a draft test run silently wrote a bogus "/" entry.
+    if (!config.draftMode) {
+      try {
+        const postPath = new URL(published.url).pathname;
+        await updateTitlesManifest({ r2Client: createR2Client(config.r2), bucket: config.r2.bucket, publicBaseUrl: config.r2.publicBaseUrl }, postPath, {
+          id: parsed.meta.titleId,
+          en: parsed.meta.titleEn,
+        });
+      } catch (err) {
+        console.warn(`Skipping titles manifest update (non-fatal): ${err.message}`);
+      }
+    }
 
     console.log("Done.");
   } catch (err) {

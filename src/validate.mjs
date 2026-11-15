@@ -29,8 +29,8 @@ function wordCount(text) {
   return text ? text.split(/\s+/).filter(Boolean).length : 0;
 }
 
-function extractDiv(html, id) {
-  const re = new RegExp(`<div[^>]*id=["']${id}["'][^>]*>([\\s\\S]*?)</div>\\s*(?=<div|<script|$)`, "i");
+function extractDivByClass(html, className) {
+  const re = new RegExp(`<div[^>]*class=["'][^"']*\\b${className}\\b[^"']*["'][^>]*>([\\s\\S]*?)</div>\\s*(?=<div|<script|$)`, "i");
   const match = html.match(re);
   return match ? match[1] : "";
 }
@@ -66,31 +66,19 @@ export function validateArticle({ meta, html }) {
     }
   }
 
-  // NOTE: checking only for the substring "window.__setLang" is NOT enough
-  // -- the toggle buttons' own onclick attributes ("window.__setLang &&
-  // window.__setLang('id', true)") always contain that exact text, so that
-  // check always "passes" even when the entire <script> block that DEFINES
-  // the function is missing. Seen in practice: real published posts with
-  // both language divs present (and still display:none, since nothing ever
-  // sets them visible) but zero <script> tags anywhere -- this check let
-  // every one of them through. Require an actual script block containing
-  // the function's DEFINITION, not just a reference/call to it.
-  const hasScriptBlock = /<script[\s\S]*?<\/script>/i.test(html);
-  const hasSetLangDefinition = /window\.__setLang\s*=\s*function/.test(html);
-  if (!hasScriptBlock || !hasSetLangDefinition) {
-    issues.push("Script toggle bahasa (definisi window.__setLang di dalam <script>) tidak ditemukan atau tidak lengkap di HTML -- kedua versi bahasa akan tetap tersembunyi (display:none) selamanya tanpa ini.");
-  }
-
-  const buttonCount = (html.match(/<button[^>]*>/gi) || []).length;
-  if (buttonCount < 2) {
-    issues.push(`Tombol toggle bahasa tidak lengkap (ditemukan ${buttonCount}, seharusnya minimal 2).`);
-  }
-
-  const idDiv = extractDiv(html, "indonesian-version");
-  const enDiv = extractDiv(html, "english-version");
+  // NOTE: bahasa switching is now handled entirely by the site's global nav
+  // toggle (theme-level CSS/JS, not per-article) -- the article HTML must
+  // NOT contain its own toggle buttons/script/id-based divs anymore (that
+  // old scheme is what caused the excerpt-leak bug: button text like "🇮🇩
+  // Bahasa Indonesia" has no display:none equivalent Blogger's excerpt
+  // generator respects). Instead require the two class-based content
+  // blocks the theme's CSS (`.lang-id`/`.lang-en`) already knows how to
+  // show/hide.
+  const idDiv = extractDivByClass(html, "lang-id");
+  const enDiv = extractDivByClass(html, "lang-en");
 
   if (!idDiv) {
-    issues.push('Div id="indonesian-version" tidak ditemukan.');
+    issues.push('Div class="lang-id" tidak ditemukan.');
   } else {
     const words = wordCount(stripHtml(idDiv));
     if (words < MIN_WORDS_PER_LANGUAGE) {
@@ -99,7 +87,7 @@ export function validateArticle({ meta, html }) {
   }
 
   if (!enDiv) {
-    issues.push('Div id="english-version" tidak ditemukan.');
+    issues.push('Div class="lang-en" tidak ditemukan.');
   } else {
     const words = wordCount(stripHtml(enDiv));
     if (words < MIN_WORDS_PER_LANGUAGE) {

@@ -48,6 +48,7 @@ export function parseGeminiArticleResponse(rawText) {
     targetKeyword: extractField(sectionA, "Target Keyword Utama"),
     lsiKeywords: extractField(sectionA, "Keyword Turunan \\(LSI\\)"),
     titleEn: extractField(sectionA, "Judul Artikel"),
+    titleId: extractField(sectionA, "Judul Artikel \\(Bahasa Indonesia\\)"),
     metaDescription: extractField(sectionA, "Meta Description"),
     altText: extractField(sectionA, "Alt Text Gambar Utama"),
     thumbnailPrompt: extractField(sectionA, "Prompt Thumbnail"),
